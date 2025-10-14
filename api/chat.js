@@ -44,6 +44,20 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
+// Helpers para seleção de tópico
+function tokenize(str) {
+  return Array.from(new Set(normalizeStr(str).split(/\W+/).filter(t => t && t.length > 2)));
+}
+function topicPages(entry) {
+  const arr = [...(entry.paginas || [])];
+  for (const s of entry.subtopicos || []) arr.push(...(s.paginas || []));
+  return Array.from(new Set(arr)).sort((a, b) => a - b);
+}
+function topicText(entry) {
+  const subs = (entry.subtopicos || []).map(s => s.titulo || "").join(" ");
+  return `${entry.topico || ""} ${subs}`.trim();
+}
+
 // Busca simples no sumário por similaridade textual
 function searchSummary(sumario, query) {
   const normalized = query.toLowerCase();
@@ -137,36 +151,111 @@ export default async function handler(req, res) {
       return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
     }
 
-    // 5️⃣ Seleciona 1 única página para contexto (consistência de citação)
-    const bestPage = ranked[0].pagina;
-    const selectedPages = [bestPage];
+    // Mapa rápido página → score
+    const pageById = new Map(ranked.map(r => [r.pagina, r]));
+    const embByPage = new Map(prelim.map(r => [r.pagina, r.embScore]));
 
-    // 6️⃣ Monta o contexto só da melhor página
-    const snippet = (pageMap.get(bestPage) || "").trim();
-    if (!snippet) {
+    // 5️⃣ Seleciona 1 tópico do sumário (híbrido lexical + agregação de embeddings das páginas do tópico)
+    const qTokensSet = new Set(qTokens);
+    const topicScored = [];
+    for (const entry of sumario) {
+      const tPages = topicPages(entry);
+      if (!tPages.length) continue;
+
+      const tText = topicText(entry);
+      const tTokens = tokenize(tText);
+      let lexOverlap = 0;
+      for (const t of tTokens) if (qTokensSet.has(t)) lexOverlap++;
+
+      // soma dos top-5 embScores das páginas do tópico (evita viés por tópicos muito longos)
+      const embScores = tPages.map(p => embByPage.get(p) ?? -1).filter(v => v >= 0).sort((a, b) => b - a);
+      const embAgg = embScores.slice(0, 5).reduce((s, v) => s + v, 0);
+
+      topicScored.push({ entry, pages: tPages, lexOverlap, embAgg });
+    }
+
+    let selectedTopic = null;
+    if (topicScored.length) {
+      const minLex = Math.min(...topicScored.map(t => t.lexOverlap));
+      const maxLex = Math.max(...topicScored.map(t => t.lexOverlap));
+      const minEmbAgg = Math.min(...topicScored.map(t => t.embAgg));
+      const maxEmbAgg = Math.max(...topicScored.map(t => t.embAgg));
+
+      const scored = topicScored.map(t => {
+        const lexNorm = maxLex > minLex ? (t.lexOverlap - minLex) / (maxLex - minLex || 1) : (t.lexOverlap > 0 ? 1 : 0);
+        const embNorm = maxEmbAgg > minEmbAgg ? (t.embAgg - minEmbAgg) / (maxEmbAgg - minEmbAgg || 1) : 0;
+        const finalScore = 0.4 * lexNorm + 0.6 * embNorm;
+        return { ...t, lexNorm, embNorm, finalScore };
+      }).sort((a, b) => {
+        if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+        // desempate determinístico: menor primeira página
+        return (a.pages[0] || Infinity) - (b.pages[0] || Infinity);
+      });
+
+      selectedTopic = scored[0];
+    }
+
+    // 6️⃣ Monta o contexto com páginas do tópico escolhido (ou fallback para melhores páginas globais)
+    let includedPages = [];
+    let contextBuilder = [];
+    let totalLen = 0;
+
+    if (selectedTopic && selectedTopic.pages.length) {
+      // Ordenar páginas do tópico por relevância (score da página) e empatar por número da página
+      const orderedTopicPages = [...selectedTopic.pages].sort((a, b) => {
+        const sa = pageById.get(a)?.finalScore ?? -1;
+        const sb = pageById.get(b)?.finalScore ?? -1;
+        if (sb !== sa) return sb - sa;
+        return a - b;
+      });
+
+      for (const pagina of orderedTopicPages) {
+        const snippet = (pageMap.get(pagina) || "").trim();
+        if (!snippet) continue;
+        const len = snippet.length;
+        if (totalLen + len > MAX_CONTEXT_TOKENS * 4) break;
+        contextBuilder.push(`--- Página ${pagina} ---\n${snippet}\n`);
+        totalLen += len;
+        includedPages.push(pagina);
+      }
+    }
+
+    // Fallback: se nada foi incluído do tópico, use as top páginas globais
+    if (!includedPages.length) {
+      for (const r of ranked.slice(0, TOP_K)) {
+        const snippet = (pageMap.get(r.pagina) || "").trim();
+        if (!snippet) continue;
+        const len = snippet.length;
+        if (totalLen + len > MAX_CONTEXT_TOKENS * 4) break;
+        contextBuilder.push(`--- Página ${r.pagina} ---\n${snippet}\n`);
+        totalLen += len;
+        includedPages.push(r.pagina);
+      }
+    }
+
+    const contextText = contextBuilder.join("\n");
+    if (!contextText.trim()) {
       return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
     }
-    const contextText = `--- Página ${bestPage} ---\n${snippet}\n`;
 
-    // 7️⃣ Prompt restritivo: citar exatamente 1 página e trecho literal
+    // 7️⃣ Prompt restritivo: permitir múltiplas páginas e exigir citação literal com página
     const systemInstruction = `
-Você responde exclusivamente com base no texto abaixo.
+Você responde exclusivamente com base nos trechos abaixo.
 Regras:
 - Não adicione informações externas.
 - Use somente frases originais do texto fornecido.
-- Cite exatamente 1 página e inclua pelo menos 1 trecho literal entre aspas dessa página.
+- Inclua pelo menos 1 citação literal entre aspas com a página de origem. Se usar mais de um trecho, cite a página após cada citação.
 - Se a informação não estiver no texto, responda exatamente: "Não encontrei conteúdo no livro."
 `.trim();
 
     const userPrompt = `
-Conteúdo do livro (apenas 1 página):
+Conteúdo do livro (páginas selecionadas):
 ${contextText}
 
 Pergunta do usuário:
 """${question}"""
 
-Responda usando SOMENTE palavras do texto, cite a página ${bestPage} e inclua trechos literais entre aspas.
-Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro."
+Responda SOMENTE com base nesses trechos. Dê uma resposta objetiva e apresente as citações com a(s) página(s) correspondente(s).
 `.trim();
 
     // 8️⃣ Geração determinística
@@ -192,7 +281,7 @@ Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro.
 
     return res.status(200).json({
       answer,
-      used_pages: selectedPages
+      used_pages: includedPages
     });
 
   } catch (err) {
