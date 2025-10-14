@@ -39,6 +39,17 @@ function logObj(label, obj) {
   if (store.logs) store.logs.push(`${label}: ${rendered}`);
   console.log(label, rendered);
 }
+// Novo helper opcional para linhas simples
+function logLine(...args) {
+  const store = als.getStore();
+  if (!(store && store.enabled)) return;
+  const msg = args.map(a => {
+    if (typeof a === "string") return a;
+    try { return JSON.stringify(a); } catch { return String(a); }
+  }).join(" ");
+  store.logs.push(msg);
+  console.log(msg);
+}
 function logOpenAIRequest(kind, payload) {
   const store = als.getStore();
   if (!(store && store.enabled)) return;
@@ -50,7 +61,7 @@ function logOpenAIRequest(kind, payload) {
     }));
   }
   if (typeof clone.input === "string") clone.input = truncate(clone.input, 600);
-  logSection(`OpenAI Request: ${kind}`);
+  logSection(`Requisição OpenAI: ${kind}`);
   logObj("payload", clone);
 }
 function logOpenAIResponse(kind, resp, extra = {}) {
@@ -71,7 +82,7 @@ function logOpenAIResponse(kind, resp, extra = {}) {
     })),
     ...extra
   };
-  logSection(`OpenAI Response: ${kind}`);
+  logSection(`Resposta OpenAI: ${kind}`);
   logObj("data", safe);
 }
 // ==== End logging helpers ====
@@ -180,9 +191,9 @@ function searchSummary(sumario, query) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  // ativa logs se env ou debug=1 (query ou body)
-  const forceDebug = /^(1|true|yes|on)$/i.test(String(req.query?.debug ?? req.body?.debug ?? ""));
-  als.enterWith({ logs: [], enabled: LOG_OPENAI || forceDebug });
+  // Sempre habilitar logs para expor toda a interação
+  // const forceDebug = /^(1|true|yes|on)$/i.test(String(req.query?.debug ?? req.body?.debug ?? ""));
+  als.enterWith({ logs: [], enabled: true });
   const getLogs = () => (als.getStore()?.logs || []);
 
   try {
@@ -192,8 +203,8 @@ export default async function handler(req, res) {
 
     const storeEnabled = als.getStore()?.enabled;
     if (storeEnabled) {
-      logSection("Incoming question");
-      console.log("question:", question);
+      logSection("Pergunta recebida");
+      logObj("question", question);
     }
 
     // 1️⃣ Remover geração de variações estocásticas (multi-query) para evitar flutuação
@@ -214,7 +225,8 @@ export default async function handler(req, res) {
     // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
     const pagesFromSummary = searchSummary(sumario, question);
     if (als.getStore()?.enabled) {
-      console.log("pagesFromSummary:", pagesFromSummary);
+      logSection("Páginas do sumário");
+      logObj("pagesFromSummary", pagesFromSummary);
     }
 
     // 4️⃣ Consulta de embedding única
@@ -250,7 +262,8 @@ export default async function handler(req, res) {
       candidatePages = pageEmbeddings.map(pe => pe.pagina).filter(p => pageMap.has(p));
     }
     if (als.getStore()?.enabled) {
-      console.log("candidatePages_count:", candidatePages.length);
+      logSection("Candidatos (embedding)");
+      logObj("candidatePages_count", candidatePages.length);
     }
 
     // Calcular scores por página (apenas nos candidatos)
@@ -295,8 +308,8 @@ export default async function handler(req, res) {
 
     if (als.getStore()?.enabled && ranked.length) {
       const top = ranked[0];
-      logSection("Ranking top result");
-      logObj("top_page", {
+      logSection("Ranqueamento - Top 1");
+      logObj("pagina_topo", {
         pagina: top.pagina,
         embScore: top.embScore,
         lexScore: top.lexScore,
@@ -365,8 +378,8 @@ Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro.
       "Não encontrei conteúdo no livro.";
 
     if (als.getStore()?.enabled) {
-      logSection("Final answer payload");
-      logObj("response", { answer, used_pages: selectedPages });
+      logSection("Resposta final");
+      logObj("payload", { answer, used_pages: selectedPages });
     }
 
     return res.status(200).json({
