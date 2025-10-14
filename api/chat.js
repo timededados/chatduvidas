@@ -35,27 +35,13 @@ function searchSummary(sumario, query) {
       ?.map(s => s.titulo)
       .join(" ")}`.toLowerCase();
     if (allText.includes(normalized)) {
-      results.push({
-        topico: top.topico,
-        paginas: top.paginas || [],
-        subtopicos: top.subtopicos || []
-      });
+      results.push(...top.paginas);
+      for (const s of top.subtopicos || []) {
+        results.push(...(s.paginas || []));
+      }
     }
   }
-  return results;
-}
-
-// Localiza o tópico/subtópico de uma página
-function findTopicForPage(sumario, pagina) {
-  for (const top of sumario) {
-    const topRange = top.paginas || [];
-    if (topRange.includes(pagina)) return { topico: top.topico, subt: null };
-    for (const s of top.subtopicos || []) {
-      if ((s.paginas || []).includes(pagina))
-        return { topico: top.topico, subt: s.titulo };
-    }
-  }
-  return null;
+  return Array.from(new Set(results)).sort((a, b) => a - b);
 }
 
 // ---------- Função principal ----------
@@ -108,11 +94,7 @@ Pergunta: """${question}"""
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
 
     // 3️⃣ Busca no sumário
-    const summaryMatches = searchSummary(sumario, question);
-    const pagesFromSummary = summaryMatches.flatMap(m => [
-      ...(m.paginas || []),
-      ...m.subtopicos.flatMap(s => s.paginas || [])
-    ]);
+    const pagesFromSummary = searchSummary(sumario, question);
 
     // 4️⃣ Busca semântica (embeddings)
     const aggregate = new Map();
@@ -163,13 +145,13 @@ Pergunta: """${question}"""
     if (!contextText.trim())
       return res.json({ answer: "Não encontrei conteúdo no livro." });
 
-    // 8️⃣ Prompt restritivo com citações literais e negrito
+    // 8️⃣ Prompt restritivo com citações literais
     const systemInstruction = `
 Você é um assistente que responde perguntas exclusivamente com base no texto abaixo.
 ⚠️ REGRAS IMPORTANTES:
 - NÃO adicione informações externas.
 - Use APENAS as frases originais do texto fornecido.
-- Sempre inclua as citações exatas entre aspas e em negrito ("**texto**"), indicando a página de origem.
+- Sempre inclua as citações exatas entre aspas e a página de origem.
 - Se a informação não estiver no texto, responda exatamente:
   "Não encontrei conteúdo no livro."
 `;
@@ -182,7 +164,7 @@ ${contextText}
 Pergunta do usuário:
 """${question}"""
 
-Responda usando SOMENTE as palavras originais do livro, citando entre aspas e em negrito as partes utilizadas e a(s) página(s) correspondente(s).
+Responda usando SOMENTE as palavras originais do livro, citando entre aspas as partes utilizadas e a(s) página(s) correspondente(s).
 `;
 
     const chatResp = await openai.chat.completions.create({
@@ -195,40 +177,13 @@ Responda usando SOMENTE as palavras originais do livro, citando entre aspas e em
       max_tokens: 900
     });
 
-    const rawAnswer =
+    const answer =
       chatResp.choices?.[0]?.message?.content?.trim() ||
       "Não encontrei conteúdo no livro.";
 
-    // 9️⃣ Extrai páginas realmente citadas na resposta
-    const citedPages = [];
-    const regex = /\(\*\*p[aá]gina[s]?\s*(\d+)\*\*\)/gi;
-    let match;
-    while ((match = regex.exec(rawAnswer)) !== null) {
-      const num = parseInt(match[1], 10);
-      if (!isNaN(num)) citedPages.push(num);
-    }
-    const uniquePages = Array.from(new Set(citedPages)).sort((a, b) => a - b);
-
-    // Se o modelo não citou páginas, usamos as expandidas
-    const usedPages = uniquePages.length ? uniquePages : expandedPages;
-
-    // Localiza tópico/subtópico do primeiro número citado
-    const ref = findTopicForPage(sumario, usedPages[0]) || {};
-    const topicName = ref.topico || "tópico não identificado";
-    const subName = ref.subt || "subtópico não identificado";
-
-    // Define range de páginas (somente das citadas)
-    const pageRange =
-      usedPages.length === 1
-        ? `página ${usedPages[0]}`
-        : `páginas ${usedPages[0]}–${usedPages[usedPages.length - 1]}`;
-
-    // Cabeçalho formatado
-    const formatted = `Essa resposta pode ser encontrada no tópico "${topicName}", subtópico "${subName}", na(s) ${pageRange}.\n\n**Resposta:**\n${rawAnswer}`;
-
     return res.status(200).json({
-      answer: formatted,
-      used_pages: usedPages
+      answer,
+      used_pages: expandedPages
     });
 
   } catch (err) {
