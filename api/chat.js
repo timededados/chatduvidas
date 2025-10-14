@@ -12,165 +12,218 @@ const SUM_PATH = path.join(DATA_DIR, "sumario_final.json");
 
 const EMB_MODEL = "text-embedding-3-small";
 const CHAT_MODEL = "gpt-4o-mini";
-const TOP_K = 6;
-const MAX_CONTEXT_TOKENS = 3000;
 
-// ---------- Funções auxiliares ----------
-function dot(a, b) {
-  return a.reduce((s, v, i) => s + v * b[i], 0);
-}
-function norm(a) {
-  return Math.sqrt(a.reduce((s, x) => s + x * x, 0));
-}
-function cosineSim(a, b) {
-  return dot(a, b) / (norm(a) * norm(b) + 1e-8);
-}
+// Recuperação
+const RECALL_TOP_K = 60;       // top páginas por similaridade (recall alto)
+const TOPIC_PAGES_TOP_K = 8;   // páginas do tópico que entram no contexto
+const MAX_CONTEXT_CHARS = 120_000; // ~30k tokens aprox (ajuste conforme necessário)
 
-// Determinismo e normalização simples
-function seedFromString(s) {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
-  return Math.abs(h >>> 0);
-}
+// ---------- Utils ----------
+function dot(a, b) { return a.reduce((s, v, i) => s + v * b[i], 0); }
+function norm(a) { return Math.sqrt(a.reduce((s, x) => s + x * x, 0)); }
+function cosineSim(a, b) { return dot(a, b) / (norm(a) * norm(b) + 1e-8); }
+
 function normalizeStr(s) {
-  return (s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  return (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+function tokenize(s) {
+  return Array.from(new Set(normalizeStr(s).split(/\W+/).filter(t => t && t.length > 2)));
 }
 function countOccurrences(text, token) {
   if (!token) return 0;
   const re = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
   return (text.match(re) || []).length;
 }
-
-// Busca simples no sumário por similaridade textual
-function searchSummary(sumario, query) {
-  const normalized = query.toLowerCase();
-  const results = [];
-  for (const top of sumario) {
-    const allText = `${top.topico} ${top.subtopicos
-      ?.map(s => s.titulo)
-      .join(" ")}`.toLowerCase();
-    if (allText.includes(normalized)) {
-      results.push(...top.paginas);
-      for (const s of top.subtopicos || []) {
-        results.push(...(s.paginas || []));
-      }
-    }
-  }
-  return Array.from(new Set(results)).sort((a, b) => a - b);
+function stableSortByScoreThenPage(arr, scoreKey = "score") {
+  return arr.sort((a, b) => {
+    if (b[scoreKey] !== a[scoreKey]) return b[scoreKey] - a[scoreKey];
+    return a.pagina - b.pagina;
+  });
 }
 
-// ---------- Função principal ----------
+// Constrói a lista de tópicos a partir do sumário
+function buildTopics(sumario) {
+  const topics = [];
+  for (const node of sumario) {
+    const title = String(node.topico || "").trim();
+    const pages = Array.isArray(node.paginas) ? Array.from(new Set(node.paginas)).sort((a, b) => a - b) : [];
+    if (title && pages.length) {
+      topics.push({ title, pages });
+    }
+    // subtopicos geralmente não têm páginas; ignorar quando vazio
+  }
+  return topics;
+}
+
+// Seleciona o melhor tópico combinando (1) páginas recuperadas por embeddings e (2) boost lexical do título
+function selectBestTopic({ topics, topPages, questionTokens }) {
+  let best = null;
+  for (const t of topics) {
+    // soma dos scores das páginas do tópico presentes em topPages
+    let sumScore = 0;
+    for (const p of topPages) {
+      if (t.pages.includes(p.pagina)) sumScore += p.score;
+    }
+    // boost lexical pelo título
+    const titleNorm = normalizeStr(t.title);
+    let lexBoost = 0;
+    for (const tok of questionTokens) lexBoost += countOccurrences(titleNorm, tok);
+    // peso pequeno no boost lexical
+    const finalScore = sumScore + 0.08 * lexBoost;
+    if (!best || finalScore > best.finalScore || (finalScore === best.finalScore && t.pages[0] < best.topic.pages[0])) {
+      best = { topic: t, finalScore };
+    }
+  }
+  return best?.topic || null;
+}
+
+// Gera contexto a partir de páginas selecionadas
+function buildContextFromPages({ pagesList, pageMap, maxChars }) {
+  let context = "";
+  let used = [];
+  let acc = 0;
+  for (const p of pagesList) {
+    const txt = (pageMap.get(p) || "").trim();
+    if (!txt) continue;
+    const chunk = `--- Página ${p} ---\n${txt}\n\n`;
+    if (acc + chunk.length > maxChars) break;
+    context += chunk;
+    used.push(p);
+    acc += chunk.length;
+  }
+  return { context, usedPages: used };
+}
+
+// Validação: quotes devem existir no texto da página indicada
+function validateCitations(citations, pageMap, allowedPagesSet) {
+  if (!Array.isArray(citations)) return [];
+  const valids = [];
+  for (const c of citations) {
+    const page = Number(c?.page);
+    const quote = String(c?.quote || "");
+    if (!page || !quote || !allowedPagesSet.has(page)) continue;
+    const pageText = pageMap.get(page) || "";
+    if (pageText.includes(quote)) {
+      valids.push({ page, quote });
+    }
+    if (valids.length >= 2) break; // limitar a 2 citações
+  }
+  return valids;
+}
+
+// ---------- Handler ----------
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
   try {
-    const { question } = req.body;
-    if (!question || !question.trim())
+    const { question } = req.body || {};
+    if (!question || !String(question).trim()) {
       return res.status(400).json({ error: "Pergunta vazia" });
+    }
 
-    // 1️⃣ Remover geração de variações estocásticas (multi-query) para evitar flutuação
-    const variations = [question]; // consulta única e determinística
-
-    // 2️⃣ Carrega dados (inalterado)
-    const [bookRaw, embRaw, sumRaw] = await Promise.all([
+    // 1) Carregar dados
+    const [bookRaw, embRaw, sumRaw] = await Promise.allSettled([
       fs.readFile(BOOK_PATH, "utf8"),
       fs.readFile(EMB_PATH, "utf8"),
       fs.readFile(SUM_PATH, "utf8")
     ]);
-    const pages = JSON.parse(bookRaw);
-    const pageEmbeddings = JSON.parse(embRaw);
-    const sumario = JSON.parse(sumRaw);
 
-    const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
+    if (bookRaw.status !== "fulfilled" || embRaw.status !== "fulfilled" || sumRaw.status !== "fulfilled") {
+      return res.status(500).json({ error: "Falha ao carregar dados" });
+    }
 
-    // 3️⃣ Busca no sumário (inalterado)
-    const pagesFromSummary = searchSummary(sumario, question);
+    const pages = JSON.parse(bookRaw.value);              // esperado: [{ pagina: number, texto: string }, ...]
+    const pageEmbeddings = JSON.parse(embRaw.value);      // esperado: [{ pagina: number, embedding: number[] }, ...]
+    const sumario = JSON.parse(sumRaw.value);             // sumário estruturado
 
-    // 4️⃣ Consulta de embedding única e ranking híbrido (embedding + lexical + boost sumário)
+    const pageMap = new Map(pages.map(p => [p.pagina, p.texto || ""]));
+    const availablePages = new Set(pages.map(p => p.pagina));
+
+    // 2) Embedding da pergunta
     const qEmbResp = await openai.embeddings.create({
       model: EMB_MODEL,
       input: question
     });
     const queryEmb = qEmbResp.data[0].embedding;
 
-    const qNorm = normalizeStr(question);
-    const qTokens = Array.from(
-      new Set(qNorm.split(/\W+/).filter(t => t && t.length > 2))
-    );
-
-    // Calcular scores por página
-    let minEmb = Infinity, maxEmb = -Infinity, maxLex = 0;
-    const prelim = [];
+    // 3) Scoring por embeddings e recall de páginas
+    const scored = [];
     for (const pe of pageEmbeddings) {
-      const embScore = cosineSim(queryEmb, pe.embedding);
-      const raw = pageMap.get(pe.pagina) || "";
-      const txt = normalizeStr(raw);
-      let lexScore = 0;
-      for (const t of qTokens) lexScore += countOccurrences(txt, t);
-      prelim.push({
-        pagina: pe.pagina,
-        embScore,
-        lexScore,
-        inSummary: pagesFromSummary.includes(pe.pagina)
-      });
-      if (embScore < minEmb) minEmb = embScore;
-      if (embScore > maxEmb) maxEmb = embScore;
-      if (lexScore > maxLex) maxLex = lexScore;
+      if (!availablePages.has(pe.pagina)) continue; // ignorar páginas sem texto
+      const score = cosineSim(queryEmb, pe.embedding);
+      scored.push({ pagina: pe.pagina, score });
+    }
+    stableSortByScoreThenPage(scored, "score");
+    const recallPages = scored.slice(0, RECALL_TOP_K);
+
+    // 4) Seleção de tópico (sumario) com ranking híbrido
+    const topics = buildTopics(sumario);
+    const qTokens = tokenize(question);
+    const bestTopic = selectBestTopic({ topics, topPages: recallPages, questionTokens: qTokens });
+
+    if (!bestTopic) {
+      return res.status(200).json({ answer: "Não encontrei conteúdo no livro.", citations: [], used_pages: [] });
     }
 
-    const ranked = prelim.map(r => {
-      const embNorm = (r.embScore - minEmb) / (Math.max(1e-8, maxEmb - minEmb));
-      const lexNorm = maxLex > 0 ? r.lexScore / maxLex : 0;
-      const summaryBoost = r.inSummary ? 0.08 : 0;
-      const finalScore = 0.7 * embNorm + 0.3 * lexNorm + summaryBoost;
-      return { ...r, embNorm, lexNorm, finalScore };
-    })
-    .sort((a, b) => {
-      if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
-      return a.pagina - b.pagina; // desempate determinístico
+    // 5) Dentro do tópico, selecionar páginas com maior score
+    const topicPageSet = new Set(bestTopic.pages.filter(p => availablePages.has(p)));
+    if (topicPageSet.size === 0) {
+      return res.status(200).json({ answer: "Não encontrei conteúdo no livro.", citations: [], used_pages: [] });
+    }
+
+    const topicScored = recallPages
+      .filter(p => topicPageSet.has(p.pagina))
+      .slice(0, RECALL_TOP_K);
+
+    // Se recall não trouxe páginas do tópico, avalie diretamente todas as páginas do tópico
+    let finalCandidates = topicScored;
+    if (!finalCandidates.length) {
+      const rescored = [];
+      for (const pe of pageEmbeddings) {
+        if (!topicPageSet.has(pe.pagina)) continue;
+        rescored.push({ pagina: pe.pagina, score: cosineSim(queryEmb, pe.embedding) });
+      }
+      stableSortByScoreThenPage(rescored, "score");
+      finalCandidates = rescored.slice(0, TOPIC_PAGES_TOP_K);
+    }
+
+    // Top páginas do tópico para contexto
+    stableSortByScoreThenPage(finalCandidates, "score");
+    const selectedPages = finalCandidates
+      .slice(0, TOPIC_PAGES_TOP_K)
+      .map(x => x.pagina)
+      .sort((a, b) => a - b);
+
+    // 6) Montar contexto
+    const { context, usedPages } = buildContextFromPages({
+      pagesList: selectedPages,
+      pageMap,
+      maxChars: MAX_CONTEXT_CHARS
     });
 
-    if (!ranked.length) {
-      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
+    if (!context.trim()) {
+      return res.status(200).json({ answer: "Não encontrei conteúdo no livro.", citations: [], used_pages: [] });
     }
 
-    // 5️⃣ Seleciona 1 única página para contexto (consistência de citação)
-    const bestPage = ranked[0].pagina;
-    const selectedPages = [bestPage];
-
-    // 6️⃣ Monta o contexto só da melhor página
-    const snippet = (pageMap.get(bestPage) || "").trim();
-    if (!snippet) {
-      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
-    }
-    const contextText = `--- Página ${bestPage} ---\n${snippet}\n`;
-
-    // 7️⃣ Prompt restritivo: citar exatamente 1 página e trecho literal
+    // 7) Prompt: saída estruturada e citações obrigatórias (quotes literais)
     const systemInstruction = `
-Você responde exclusivamente com base no texto abaixo.
+Você é um assistente que responde exclusivamente com base no conteúdo fornecido.
 Regras:
-- Não adicione informações externas.
-- Use somente frases originais do texto fornecido.
-- Cite exatamente 1 página e inclua pelo menos 1 trecho literal entre aspas dessa página.
-- Se a informação não estiver no texto, responda exatamente: "Não encontrei conteúdo no livro."
+- Não use conhecimento externo.
+- Selecione no máximo 2 trechos literais do texto e cite a(s) página(s).
+- Se não houver resposta no texto, responda exatamente: "Não encontrei conteúdo no livro."
+- Responda no formato JSON: {"answer":"...", "citations":[{"page":<n>,"quote":"..."}]}
 `.trim();
 
     const userPrompt = `
-Conteúdo do livro (apenas 1 página):
-${contextText}
+Conteúdo do livro (páginas do tópico: ${bestTopic.title}):
+
+${context}
 
 Pergunta do usuário:
 """${question}"""
-
-Responda usando SOMENTE palavras do texto, cite a página ${bestPage} e inclua trechos literais entre aspas.
-Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro."
 `.trim();
 
-    // 8️⃣ Geração determinística
-    const seed = seedFromString(question);
     const chatResp = await openai.chat.completions.create({
       model: CHAT_MODEL,
       messages: [
@@ -179,20 +232,32 @@ Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro.
       ],
       temperature: 0,
       top_p: 1,
-      frequency_penalty: 0,
-      presence_penalty: 0,
-      n: 1,
       max_tokens: 900,
-      seed
+      response_format: { type: "json_object" }
     });
 
-    const answer =
-      chatResp.choices?.[0]?.message?.content?.trim() ||
-      "Não encontrei conteúdo no livro.";
+    let parsed;
+    try {
+      const raw = chatResp.choices?.[0]?.message?.content || "";
+      parsed = JSON.parse(raw);
+    } catch {
+      return res.status(200).json({ answer: "Não encontrei conteúdo no livro.", citations: [], used_pages: usedPages, topic: bestTopic.title });
+    }
+
+    const answer = String(parsed?.answer || "").trim();
+    const citations = Array.isArray(parsed?.citations) ? parsed.citations : [];
+    const allowedPagesSet = new Set(usedPages);
+    const validCitations = validateCitations(citations, pageMap, allowedPagesSet);
+
+    if (!answer || (validCitations.length === 0 && answer !== "Não encontrei conteúdo no livro.")) {
+      return res.status(200).json({ answer: "Não encontrei conteúdo no livro.", citations: [], used_pages: usedPages, topic: bestTopic.title });
+    }
 
     return res.status(200).json({
       answer,
-      used_pages: selectedPages
+      citations: validCitations,
+      used_pages: usedPages,
+      topic: bestTopic.title
     });
 
   } catch (err) {
