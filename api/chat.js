@@ -26,6 +26,24 @@ function cosineSim(a, b) {
   return dot(a, b) / (norm(a) * norm(b) + 1e-8);
 }
 
+// Determinismo e normalização simples
+function seedFromString(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+  return Math.abs(h >>> 0);
+}
+function normalizeStr(s) {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+function countOccurrences(text, token) {
+  if (!token) return 0;
+  const re = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
+  return (text.match(re) || []).length;
+}
+
 // Busca simples no sumário por similaridade textual
 function searchSummary(sumario, query) {
   const normalized = query.toLowerCase();
@@ -53,35 +71,10 @@ export default async function handler(req, res) {
     if (!question || !question.trim())
       return res.status(400).json({ error: "Pergunta vazia" });
 
-    // 1️⃣ Gera variações da pergunta
-    const variationPrompt = `
-Gere até 6 variações curtas (1-12 palavras) da pergunta a seguir para ajudar na busca de conteúdo técnico.
-Responda em JSON: {"variations": ["..."]}
+    // 1️⃣ Remover geração de variações estocásticas (multi-query) para evitar flutuação
+    const variations = [question]; // consulta única e determinística
 
-Pergunta: """${question}"""
-`;
-
-    const varResp = await openai.chat.completions.create({
-      model: CHAT_MODEL,
-      messages: [
-        { role: "system", content: "Você gera variações de consultas para busca textual sem adicionar conteúdo." },
-        { role: "user", content: variationPrompt }
-      ],
-      temperature: 0.2,
-      max_tokens: 300
-    });
-
-    const rawVar = varResp.choices?.[0]?.message?.content?.trim() || "";
-    let variations = [question];
-    try {
-      const parsed = JSON.parse(rawVar);
-      if (parsed?.variations?.length) variations = parsed.variations;
-    } catch {
-      variations = rawVar.split(/\r?\n/).filter(Boolean).slice(0, 6);
-      if (!variations.length) variations = [question];
-    }
-
-    // 2️⃣ Carrega dados
+    // 2️⃣ Carrega dados (inalterado)
     const [bookRaw, embRaw, sumRaw] = await Promise.all([
       fs.readFile(BOOK_PATH, "utf8"),
       fs.readFile(EMB_PATH, "utf8"),
@@ -93,80 +86,91 @@ Pergunta: """${question}"""
 
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
 
-    // 3️⃣ Busca no sumário
+    // 3️⃣ Busca no sumário (inalterado)
     const pagesFromSummary = searchSummary(sumario, question);
 
-    // 4️⃣ Busca semântica (embeddings)
-    const aggregate = new Map();
-    for (const query of variations) {
-      const qEmb = await openai.embeddings.create({
-        model: EMB_MODEL,
-        input: query
+    // 4️⃣ Consulta de embedding única e ranking híbrido (embedding + lexical + boost sumário)
+    const qEmbResp = await openai.embeddings.create({
+      model: EMB_MODEL,
+      input: question
+    });
+    const queryEmb = qEmbResp.data[0].embedding;
+
+    const qNorm = normalizeStr(question);
+    const qTokens = Array.from(
+      new Set(qNorm.split(/\W+/).filter(t => t && t.length > 2))
+    );
+
+    // Calcular scores por página
+    let minEmb = Infinity, maxEmb = -Infinity, maxLex = 0;
+    const prelim = [];
+    for (const pe of pageEmbeddings) {
+      const embScore = cosineSim(queryEmb, pe.embedding);
+      const raw = pageMap.get(pe.pagina) || "";
+      const txt = normalizeStr(raw);
+      let lexScore = 0;
+      for (const t of qTokens) lexScore += countOccurrences(txt, t);
+      prelim.push({
+        pagina: pe.pagina,
+        embScore,
+        lexScore,
+        inSummary: pagesFromSummary.includes(pe.pagina)
       });
-      const queryEmb = qEmb.data[0].embedding;
-      for (const pe of pageEmbeddings) {
-        const score = cosineSim(queryEmb, pe.embedding);
-        const prev = aggregate.get(pe.pagina) || 0;
-        aggregate.set(pe.pagina, prev + score);
-      }
+      if (embScore < minEmb) minEmb = embScore;
+      if (embScore > maxEmb) maxEmb = embScore;
+      if (lexScore > maxLex) maxLex = lexScore;
     }
 
-    const sorted = Array.from(aggregate.entries())
-      .map(([pagina, score]) => ({ pagina, score }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, TOP_K);
+    const ranked = prelim.map(r => {
+      const embNorm = (r.embScore - minEmb) / (Math.max(1e-8, maxEmb - minEmb));
+      const lexNorm = maxLex > 0 ? r.lexScore / maxLex : 0;
+      const summaryBoost = r.inSummary ? 0.08 : 0;
+      const finalScore = 0.7 * embNorm + 0.3 * lexNorm + summaryBoost;
+      return { ...r, embNorm, lexNorm, finalScore };
+    })
+    .sort((a, b) => {
+      if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+      return a.pagina - b.pagina; // desempate determinístico
+    });
 
-    const pagesFromEmbedding = sorted.map(p => p.pagina);
-
-    // 5️⃣ Combina páginas do sumário + embeddings
-    const combinedSet = new Set([...pagesFromSummary, ...pagesFromEmbedding]);
-
-    // 6️⃣ Adiciona 1 página anterior e 1 posterior
-    const expandedSet = new Set();
-    for (const p of combinedSet) {
-      expandedSet.add(p);
-      if (p > 1) expandedSet.add(p - 1);
-      expandedSet.add(p + 1);
-    }
-    const expandedPages = Array.from(expandedSet).sort((a, b) => a - b);
-
-    // 7️⃣ Monta o contexto
-    let contextBuilder = [];
-    let totalLen = 0;
-    for (const pagina of expandedPages) {
-      const snippet = (pageMap.get(pagina) || "").trim();
-      const len = snippet.length;
-      if (totalLen + len > MAX_CONTEXT_TOKENS * 4) break;
-      contextBuilder.push(`--- Página ${pagina} ---\n${snippet}\n`);
-      totalLen += len;
+    if (!ranked.length) {
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
     }
 
-    const contextText = contextBuilder.join("\n");
-    if (!contextText.trim())
-      return res.json({ answer: "Não encontrei conteúdo no livro." });
+    // 5️⃣ Seleciona 1 única página para contexto (consistência de citação)
+    const bestPage = ranked[0].pagina;
+    const selectedPages = [bestPage];
 
-    // 8️⃣ Prompt restritivo com citações literais
+    // 6️⃣ Monta o contexto só da melhor página
+    const snippet = (pageMap.get(bestPage) || "").trim();
+    if (!snippet) {
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
+    }
+    const contextText = `--- Página ${bestPage} ---\n${snippet}\n`;
+
+    // 7️⃣ Prompt restritivo: citar exatamente 1 página e trecho literal
     const systemInstruction = `
-Você é um assistente que responde perguntas exclusivamente com base no texto abaixo.
-⚠️ REGRAS IMPORTANTES:
-- NÃO adicione informações externas.
-- Use APENAS as frases originais do texto fornecido.
-- Sempre inclua as citações exatas entre aspas e a página de origem.
-- Se a informação não estiver no texto, responda exatamente:
-  "Não encontrei conteúdo no livro."
-`;
+Você responde exclusivamente com base no texto abaixo.
+Regras:
+- Não adicione informações externas.
+- Use somente frases originais do texto fornecido.
+- Cite exatamente 1 página e inclua pelo menos 1 trecho literal entre aspas dessa página.
+- Se a informação não estiver no texto, responda exatamente: "Não encontrei conteúdo no livro."
+`.trim();
 
     const userPrompt = `
-Conteúdo do livro (trechos das páginas):
-
+Conteúdo do livro (apenas 1 página):
 ${contextText}
 
 Pergunta do usuário:
 """${question}"""
 
-Responda usando SOMENTE as palavras originais do livro, citando entre aspas as partes utilizadas e a(s) página(s) correspondente(s).
-`;
+Responda usando SOMENTE palavras do texto, cite a página ${bestPage} e inclua trechos literais entre aspas.
+Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro."
+`.trim();
 
+    // 8️⃣ Geração determinística
+    const seed = seedFromString(question);
     const chatResp = await openai.chat.completions.create({
       model: CHAT_MODEL,
       messages: [
@@ -174,7 +178,12 @@ Responda usando SOMENTE as palavras originais do livro, citando entre aspas as p
         { role: "user", content: userPrompt }
       ],
       temperature: 0,
-      max_tokens: 900
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0,
+      n: 1,
+      max_tokens: 900,
+      seed
     });
 
     const answer =
@@ -183,7 +192,7 @@ Responda usando SOMENTE as palavras originais do livro, citando entre aspas as p
 
     return res.status(200).json({
       answer,
-      used_pages: expandedPages
+      used_pages: selectedPages
     });
 
   } catch (err) {
