@@ -44,6 +44,54 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
+// -------- Detecção de público-alvo e páginas pediátricas/neonatais --------
+const PED_QUERY_TOKENS = [
+  "neonat", "neonato", "neonatal",
+  "bebe", "bebes",
+  "crianca", "criancas",
+  "pediatr", "infantil",
+  "lactente", "lactentes",
+  "recem nascido", "recem-nascido", "recemnascido"
+];
+
+function queryIsPediatric(q) {
+  const nq = normalizeStr(q || "");
+  return PED_QUERY_TOKENS.some(t => nq.includes(t));
+}
+
+function collectPediatricPages(sumario) {
+  const tokens = PED_QUERY_TOKENS;
+  const pedSet = new Set();
+  const addPages = (arr) => (arr || []).forEach(p => pedSet.add(p));
+
+  for (const top of sumario || []) {
+    const topTitle = normalizeStr(top?.topico || "");
+    const isPedTop =
+      tokens.some(t => topTitle.includes(t)) ||
+      topTitle.includes("suporte basico e avancado de vida em pediatria") ||
+      topTitle.includes("ressuscitacao neonatal") ||
+      topTitle.includes("emergencias pediatric");
+    if (isPedTop) {
+      addPages(top?.paginas);
+      for (const st of top?.subtopicos || []) addPages(st?.paginas);
+    } else {
+      for (const st of top?.subtopicos || []) {
+        const stTitle = normalizeStr(st?.titulo || "");
+        if (tokens.some(t => stTitle.includes(t))) addPages(st?.paginas);
+      }
+    }
+  }
+
+  // Expandir vizinhos para capturar páginas adjacentes (ex.: 2333 perto de 2326–2330)
+  const expanded = new Set(pedSet);
+  for (const p of pedSet) {
+    for (let d = -5; d <= 5; d++) {
+      if (d !== 0) expanded.add(p + d);
+    }
+  }
+  return expanded;
+}
+
 // Índice de sumário com acrônimos e sinônimos
 function buildSummaryIndex(sumario) {
   const index = new Map();
@@ -139,8 +187,15 @@ export default async function handler(req, res) {
 
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
 
-    // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
-    const pagesFromSummary = searchSummary(sumario, question);
+    // Conjunto de páginas pediátricas/neonatais e intenção do usuário
+    const pedPages = collectPediatricPages(sumario);
+    const pediatricIntent = queryIsPediatric(question);
+
+    // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos) + filtro por público-alvo
+    const pagesFromSummaryRaw = searchSummary(sumario, question);
+    const pagesFromSummary = pagesFromSummaryRaw.filter(p =>
+      pediatricIntent ? pedPages.has(p) : !pedPages.has(p)
+    );
 
     // 4️⃣ Consulta de embedding única
     const qEmbResp = await openai.embeddings.create({
@@ -154,9 +209,7 @@ export default async function handler(req, res) {
       new Set(qNorm.split(/\W+/).filter(t => t && t.length > 2))
     );
 
-    // 4.1️⃣ Define conjunto de candidatos:
-    // - Se achou páginas no sumário, restringe a elas e vizinhas (±2) para evitar desvio para seções distantes.
-    // - Caso contrário, considera todas as páginas.
+    // 4.1️⃣ Define conjunto de candidatos com base no público-alvo
     const embByPage = new Map(pageEmbeddings.map(pe => [pe.pagina, pe.embedding]));
     let candidatePages;
     if (pagesFromSummary.length) {
@@ -165,9 +218,17 @@ export default async function handler(req, res) {
         s.add(p);
         s.add(p - 2); s.add(p - 1); s.add(p + 1); s.add(p + 2);
       }
-      candidatePages = Array.from(s).filter(p => pageMap.has(p) && embByPage.has(p));
+      candidatePages = Array.from(s).filter(p =>
+        pageMap.has(p) && embByPage.has(p) &&
+        (pediatricIntent ? pedPages.has(p) : !pedPages.has(p))
+      );
     } else {
-      candidatePages = pageEmbeddings.map(pe => pe.pagina).filter(p => pageMap.has(p));
+      candidatePages = pageEmbeddings
+        .map(pe => pe.pagina)
+        .filter(p =>
+          pageMap.has(p) &&
+          (pediatricIntent ? pedPages.has(p) : !pedPages.has(p))
+        );
     }
 
     // Calcular scores por página (apenas nos candidatos)
@@ -189,7 +250,7 @@ export default async function handler(req, res) {
       });
       if (embScore < minEmb) minEmb = embScore;
       if (embScore > maxEmb) maxEmb = embScore;
-      if (lexScore > maxLex) maxLex = lexScore;
+      if (lexScore > maxLex) maxLex = maxLex = Math.max(maxLex, lexScore);
     }
 
     const ranked = prelim.map(r => {
