@@ -199,21 +199,36 @@ Responda usando SOMENTE as palavras originais do livro, citando entre aspas e em
       chatResp.choices?.[0]?.message?.content?.trim() ||
       "Não encontrei conteúdo no livro.";
 
-    // 9️⃣ Descobre tópico/subtópico do primeiro trecho relevante
-    const firstPage = expandedPages[0];
-    const ref = findTopicForPage(sumario, firstPage) || {};
+    // 9️⃣ Extrai páginas realmente citadas na resposta
+    const citedPages = [];
+    const regex = /\(\*\*p[aá]gina[s]?\s*(\d+)\*\*\)/gi;
+    let match;
+    while ((match = regex.exec(rawAnswer)) !== null) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num)) citedPages.push(num);
+    }
+    const uniquePages = Array.from(new Set(citedPages)).sort((a, b) => a - b);
+
+    // Se o modelo não citou páginas, usamos as expandidas
+    const usedPages = uniquePages.length ? uniquePages : expandedPages;
+
+    // Localiza tópico/subtópico do primeiro número citado
+    const ref = findTopicForPage(sumario, usedPages[0]) || {};
     const topicName = ref.topico || "tópico não identificado";
     const subName = ref.subt || "subtópico não identificado";
-    const pageRange =
-      expandedPages.length === 1
-        ? `página ${expandedPages[0]}`
-        : `páginas ${expandedPages[0]}–${expandedPages[expandedPages.length - 1]}`;
 
+    // Define range de páginas (somente das citadas)
+    const pageRange =
+      usedPages.length === 1
+        ? `página ${usedPages[0]}`
+        : `páginas ${usedPages[0]}–${usedPages[usedPages.length - 1]}`;
+
+    // Cabeçalho formatado
     const formatted = `Essa resposta pode ser encontrada no tópico "${topicName}", subtópico "${subName}", na(s) ${pageRange}.\n\n**Resposta:**\n${rawAnswer}`;
 
     return res.status(200).json({
       answer: formatted,
-      used_pages: expandedPages
+      used_pages: usedPages
     });
 
   } catch (err) {
