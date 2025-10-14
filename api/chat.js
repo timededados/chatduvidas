@@ -5,7 +5,6 @@ import path from "path";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Caminhos dentro da função serverless (Vercel copia tudo pro root)
 const DATA_DIR = path.join(process.cwd(), "data");
 const BOOK_PATH = path.join(DATA_DIR, "abramede_texto.json");
 const EMB_PATH = path.join(DATA_DIR, "abramede_embeddings.json");
@@ -15,7 +14,7 @@ const CHAT_MODEL = "gpt-4o-mini";
 const TOP_K = 6;
 const MAX_CONTEXT_TOKENS = 3000;
 
-// utilitários
+// ------------------ Funções auxiliares ------------------
 function dot(a, b) {
   return a.reduce((s, v, i) => s + v * b[i], 0);
 }
@@ -26,7 +25,7 @@ function cosineSim(a, b) {
   return dot(a, b) / (norm(a) * norm(b) + 1e-8);
 }
 
-// --- função principal da API ---
+// ------------------ Função principal ------------------
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
@@ -35,18 +34,19 @@ export default async function handler(req, res) {
     if (!question || !question.trim())
       return res.status(400).json({ error: "Pergunta vazia" });
 
-    // 🔹 1. Gera variações da pergunta
+    // 1️⃣ Gerar variações da pergunta
     const variationPrompt = `
-Você é um assistente que ajuda a gerar variações de consulta de busca para localizar trechos em um livro.
-Dada a pergunta do usuário, gere até 6 variações curtas (1-12 palavras cada) que mantenham o sentido.
-Responda apenas em JSON: {"variations": ["..."]}
+Você é um assistente que ajuda a gerar variações de consulta de busca em textos técnicos.
+Dada a pergunta do usuário, gere até 6 variações curtas (1-12 palavras cada) que mantenham o sentido,
+sem adicionar conteúdo novo. Responda apenas em JSON: {"variations": ["..."]}
 
-Pergunta: """${question}"""`;
+Pergunta: """${question}"""
+`;
 
     const varResp = await openai.chat.completions.create({
       model: CHAT_MODEL,
       messages: [
-        { role: "system", content: "Você gera variações de consultas para busca." },
+        { role: "system", content: "Você gera variações de consultas para busca textual sem adicionar conteúdo." },
         { role: "user", content: variationPrompt }
       ],
       temperature: 0.2,
@@ -59,22 +59,21 @@ Pergunta: """${question}"""`;
       const parsed = JSON.parse(rawVar);
       if (parsed?.variations?.length) variations = parsed.variations;
     } catch {
-      // fallback em caso de erro de JSON
       variations = rawVar.split(/\r?\n/).filter(Boolean).slice(0, 6);
       if (!variations.length) variations = [question];
     }
 
-    // 🔹 2. Carrega livro
+    // 2️⃣ Carrega o livro
     const bookRaw = await fs.readFile(BOOK_PATH, "utf8");
     const pages = JSON.parse(bookRaw);
+    const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
 
-    // 🔹 3. Carrega embeddings salvos (ou gera na primeira execução)
+    // 3️⃣ Carrega ou gera embeddings
     let pageEmbeddings;
     try {
       const embRaw = await fs.readFile(EMB_PATH, "utf8");
       pageEmbeddings = JSON.parse(embRaw);
     } catch {
-      // gera embeddings (atenção ao custo)
       pageEmbeddings = [];
       for (const p of pages) {
         const txt = (p.texto || "").slice(0, 2000);
@@ -87,16 +86,14 @@ Pergunta: """${question}"""`;
       await fs.writeFile(EMB_PATH, JSON.stringify(pageEmbeddings), "utf8");
     }
 
-    // 🔹 4. Busca semântica
+    // 4️⃣ Busca semântica
     const aggregate = new Map();
-
     for (const query of variations) {
       const qEmb = await openai.embeddings.create({
         model: EMB_MODEL,
         input: query
       });
       const queryEmb = qEmb.data[0].embedding;
-
       for (const pe of pageEmbeddings) {
         const score = cosineSim(queryEmb, pe.embedding);
         const prev = aggregate.get(pe.pagina) || 0;
@@ -110,12 +107,23 @@ Pergunta: """${question}"""`;
       .sort((a, b) => b.score - a.score)
       .slice(0, TOP_K);
 
-    const selected = sorted.map(s => {
-      const p = pages.find(x => x.pagina === s.pagina);
-      return { pagina: s.pagina, texto: p?.texto || "", score: s.score };
-    });
+    // 🔹 Inclui 1 página anterior e 1 posterior para cada selecionada
+    const expandedSet = new Set();
+    for (const { pagina } of sorted) {
+      expandedSet.add(pagina);
+      if (pagina > 1) expandedSet.add(pagina - 1);
+      expandedSet.add(pagina + 1);
+    }
 
-    // 🔹 5. Monta contexto para o modelo
+    // Elimina duplicadas e ordena
+    const expandedPages = Array.from(expandedSet).sort((a, b) => a - b);
+
+    const selected = expandedPages.map(pagina => ({
+      pagina,
+      texto: pageMap.get(pagina) || ""
+    }));
+
+    // 5️⃣ Monta o contexto
     let contextBuilder = [];
     let totalLen = 0;
     for (const s of selected) {
@@ -130,21 +138,28 @@ Pergunta: """${question}"""`;
     if (!contextText.trim())
       return res.json({ answer: "Não encontrei conteúdo no livro." });
 
-    // 🔹 6. Pede resposta com base no livro
+    // 6️⃣ Prompt para resposta literal e restrita
     const systemInstruction = `
-Você é um assistente que responde perguntas EXCLUSIVAMENTE com base no conteúdo fornecido.
-Não invente nada. Se não houver informação suficiente, diga:
-"Não encontrei conteúdo no livro."
-Cite as páginas utilizadas entre parênteses, ex: (p. 45).
+Você é um assistente que responde perguntas exclusivamente com base no texto abaixo.
+⚠️ REGRAS IMPORTANTES:
+- NÃO adicione informações externas ao texto.
+- NÃO use conhecimento médico, técnico ou enciclopédico de fora do livro.
+- SÓ utilize frases, trechos ou paráfrases curtas do texto fornecido.
+- NÃO preencha lacunas nem interprete significados.
+- Se o texto não contiver a resposta, diga exatamente:
+  "Não encontrei conteúdo no livro."
+- Cite sempre a(s) página(s) usada(s) entre parênteses, ex: (p. 45).
 `;
 
     const userPrompt = `
-Conteúdo do livro (apenas trechos abaixo). Use apenas esse conteúdo:
+Conteúdo do livro (trechos das páginas selecionadas):
 
 ${contextText}
 
-Pergunta do usuário: """${question}"""
-Responda em português.
+Pergunta do usuário:
+"""${question}"""
+
+Responda de forma literal, usando apenas o texto acima.
 `;
 
     const chatResp = await openai.chat.completions.create({
@@ -157,12 +172,13 @@ Responda em português.
       max_tokens: 800
     });
 
-    const answer = chatResp.choices?.[0]?.message?.content?.trim()
-      || "Não encontrei conteúdo no livro.";
+    const answer =
+      chatResp.choices?.[0]?.message?.content?.trim() ||
+      "Não encontrei conteúdo no livro.";
 
     return res.status(200).json({
       answer,
-      used_pages: selected.map(s => ({ pagina: s.pagina, score: s.score }))
+      used_pages: expandedPages
     });
 
   } catch (err) {
