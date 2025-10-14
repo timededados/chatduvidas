@@ -44,22 +44,75 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
-// Busca simples no sumário por similaridade textual
-function searchSummary(sumario, query) {
-  const normalized = query.toLowerCase();
-  const results = [];
-  for (const top of sumario) {
-    const allText = `${top.topico} ${top.subtopicos
-      ?.map(s => s.titulo)
-      .join(" ")}`.toLowerCase();
-    if (allText.includes(normalized)) {
-      results.push(...top.paginas);
-      for (const s of top.subtopicos || []) {
-        results.push(...(s.paginas || []));
+// Índice de sumário com acrônimos e sinônimos
+function buildSummaryIndex(sumario) {
+  const index = new Map();
+  const addKey = (key, pages) => {
+    const k = normalizeStr(key).trim();
+    if (!k) return;
+    const set = index.get(k) || new Set();
+    (pages || []).forEach(p => set.add(p));
+    index.set(k, set);
+  };
+
+  // Indexa tópicos e subcapítulos + acrônimos
+  for (const top of sumario || []) {
+    const topPages = top?.paginas || [];
+    if (top?.topico) addKey(top.topico, topPages);
+
+    for (const st of top?.subtopicos || []) {
+      const stPages = (st?.paginas && st.paginas.length ? st.paginas : topPages);
+      if (st?.titulo) {
+        addKey(st.titulo, stPages);
+        const tokens = normalizeStr(st.titulo).split(/\W+/).filter(Boolean);
+        if (tokens.length >= 2) {
+          const acronym = tokens.map(w => w[0]).join("");
+          addKey(acronym, stPages); // ex: "Ressuscitação cardiopulmonar" -> "rcp"
+        }
       }
     }
   }
-  return Array.from(new Set(results)).sort((a, b) => a - b);
+
+  // Heurísticas leves: sinônimos comuns mapeados às páginas corretas via sumário
+  const findPagesBySubtopicTitle = (needleNorm) => {
+    for (const top of sumario || []) {
+      for (const st of top?.subtopicos || []) {
+        if (normalizeStr(st?.titulo || "") === needleNorm) {
+          return st?.paginas || [];
+        }
+      }
+    }
+    return [];
+  };
+
+  // RCP
+  const rcpPages = findPagesBySubtopicTitle("ressuscitacao cardiopulmonar");
+  if (rcpPages.length) {
+    [
+      "massagem cardiaca",
+      "compressao toracica",
+      "compressoes toracicas",
+      "cpr",
+      "parada cardiorrespiratoria",
+      "ressuscitacao cardiopulmonar",
+      "rcp"
+    ].forEach(k => addKey(k, rcpPages));
+  }
+
+  return index;
+}
+
+// Busca no sumário (agora usando índice com acrônimos/sinônimos)
+function searchSummary(sumario, query) {
+  const idx = buildSummaryIndex(sumario);
+  const nq = normalizeStr(query);
+  const hits = new Set();
+  for (const [key, pages] of idx.entries()) {
+    if (key && nq.includes(key)) {
+      pages.forEach(p => hits.add(p));
+    }
+  }
+  return Array.from(hits).sort((a, b) => a - b);
 }
 
 // ---------- Função principal ----------
@@ -86,10 +139,10 @@ export default async function handler(req, res) {
 
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
 
-    // 3️⃣ Busca no sumário (inalterado)
+    // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
     const pagesFromSummary = searchSummary(sumario, question);
 
-    // 4️⃣ Consulta de embedding única e ranking híbrido (embedding + lexical + boost sumário)
+    // 4️⃣ Consulta de embedding única
     const qEmbResp = await openai.embeddings.create({
       model: EMB_MODEL,
       input: question
@@ -101,20 +154,38 @@ export default async function handler(req, res) {
       new Set(qNorm.split(/\W+/).filter(t => t && t.length > 2))
     );
 
-    // Calcular scores por página
+    // 4.1️⃣ Define conjunto de candidatos:
+    // - Se achou páginas no sumário, restringe a elas e vizinhas (±2) para evitar desvio para seções distantes.
+    // - Caso contrário, considera todas as páginas.
+    const embByPage = new Map(pageEmbeddings.map(pe => [pe.pagina, pe.embedding]));
+    let candidatePages;
+    if (pagesFromSummary.length) {
+      const s = new Set();
+      for (const p of pagesFromSummary) {
+        s.add(p);
+        s.add(p - 2); s.add(p - 1); s.add(p + 1); s.add(p + 2);
+      }
+      candidatePages = Array.from(s).filter(p => pageMap.has(p) && embByPage.has(p));
+    } else {
+      candidatePages = pageEmbeddings.map(pe => pe.pagina).filter(p => pageMap.has(p));
+    }
+
+    // Calcular scores por página (apenas nos candidatos)
     let minEmb = Infinity, maxEmb = -Infinity, maxLex = 0;
     const prelim = [];
-    for (const pe of pageEmbeddings) {
-      const embScore = cosineSim(queryEmb, pe.embedding);
-      const raw = pageMap.get(pe.pagina) || "";
+    for (const pg of candidatePages) {
+      const peEmb = embByPage.get(pg);
+      if (!peEmb) continue;
+      const embScore = cosineSim(queryEmb, peEmb);
+      const raw = pageMap.get(pg) || "";
       const txt = normalizeStr(raw);
       let lexScore = 0;
       for (const t of qTokens) lexScore += countOccurrences(txt, t);
       prelim.push({
-        pagina: pe.pagina,
+        pagina: pg,
         embScore,
         lexScore,
-        inSummary: pagesFromSummary.includes(pe.pagina)
+        inSummary: pagesFromSummary.includes(pg)
       });
       if (embScore < minEmb) minEmb = embScore;
       if (embScore > maxEmb) maxEmb = embScore;
@@ -124,11 +195,13 @@ export default async function handler(req, res) {
     const ranked = prelim.map(r => {
       const embNorm = (r.embScore - minEmb) / (Math.max(1e-8, maxEmb - minEmb));
       const lexNorm = maxLex > 0 ? r.lexScore / maxLex : 0;
-      const summaryBoost = r.inSummary ? 0.08 : 0;
+
+      // Se temos páginas do sumário, aumentamos fortemente o peso delas
+      const summaryBoost = r.inSummary ? (pagesFromSummary.length ? 0.5 : 0.08) : 0;
+
       const finalScore = 0.7 * embNorm + 0.3 * lexNorm + summaryBoost;
       return { ...r, embNorm, lexNorm, finalScore };
-    })
-    .sort((a, b) => {
+    }).sort((a, b) => {
       if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
       return a.pagina - b.pagina; // desempate determinístico
     });
