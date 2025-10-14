@@ -320,36 +320,53 @@ export default async function handler(req, res) {
       });
     }
 
-    // 5️⃣ Seleciona 1 única página para contexto (consistência de citação)
-    const bestPage = ranked[0].pagina;
-    const selectedPages = [bestPage];
-
-    // 6️⃣ Monta o contexto só da melhor página
-    const snippet = (pageMap.get(bestPage) || "").trim();
-    if (!snippet) {
+    // 5️⃣ Seleciona até 2 páginas para contexto
+    const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
+    const nonEmptyPages = selectedPages.filter(p => (pageMap.get(p) || "").trim());
+    if (!nonEmptyPages.length) {
       return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
     }
-    const contextText = `--- Página ${bestPage} ---\n${snippet}\n`;
+    if (als.getStore()?.enabled) {
+      logSection("Páginas selecionadas para contexto");
+      logObj("selectedPages", nonEmptyPages);
+    }
 
-    // 7️⃣ Prompt restritivo: citar exatamente 1 página e trecho literal
+    // 6️⃣ Monta o contexto (1 ou 2 páginas)
+    const contextText = nonEmptyPages.map(p =>
+      `--- Página ${p} ---\n${(pageMap.get(p) || "").trim()}\n`
+    ).join("\n");
+    if (als.getStore()?.enabled) {
+      logSection("Contexto bruto");
+      logObj("contextText_trunc", truncate(contextText, 1000));
+    }
+
+    // 7️⃣ Prompt restritivo multi-página
     const systemInstruction = `
-Você responde exclusivamente com base no texto abaixo.
+Você responde exclusivamente com base nos textos abaixo (até 2 páginas).
 Regras:
 - Não adicione informações externas.
-- Use somente frases originais do texto fornecido.
-- Cite exatamente 1 página e inclua pelo menos 1 trecho literal entre aspas dessa página.
-- Se a informação não estiver no texto, responda exatamente: "Não encontrei conteúdo no livro."
+- Use somente frases originais dos textos fornecidos.
+- Avalie cada página separadamente.
+- Se somente uma página contiver a resposta, cite apenas "Página X" e use pelo menos 1 trecho literal entre aspas dessa página.
+- Se as duas páginas tiverem partes relevantes, combine a resposta citando claramente ambas (ex: Página 10: "..." / Página 11: "...").
+- Use sempre "Página X" ao citar.
+- Não invente página que não está no contexto.
+- Se nenhuma página contiver a resposta, responda exatamente: "Não encontrei conteúdo no livro."
 `.trim();
 
     const userPrompt = `
-Conteúdo do livro (apenas 1 página):
+Conteúdo do livro (1 ou 2 páginas):
 ${contextText}
 
 Pergunta do usuário:
 """${question}"""
 
-Responda usando SOMENTE palavras do texto, cite a página ${bestPage} e inclua trechos literais entre aspas.
-Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro."
+Instruções de resposta:
+1. Indique apenas as páginas que realmente suportam a resposta.
+2. Use somente trechos literais entre aspas exatamente como aparecem.
+3. Se as duas páginas forem úteis, una-as citando ambas separadamente.
+4. Se só uma tiver informação útil, cite apenas essa.
+5. Caso nenhuma tenha a resposta: "Não encontrei conteúdo no livro."
 `.trim();
 
     // 8️⃣ Geração determinística
@@ -379,12 +396,12 @@ Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro.
 
     if (als.getStore()?.enabled) {
       logSection("Resposta final");
-      logObj("payload", { answer, used_pages: selectedPages });
+      logObj("payload", { answer, used_pages: nonEmptyPages });
     }
 
     return res.status(200).json({
       answer,
-      used_pages: selectedPages,
+      used_pages: nonEmptyPages,
       logs: getLogs()
     });
 
