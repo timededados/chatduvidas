@@ -2,6 +2,7 @@
 import OpenAI from "openai";
 import fs from "fs/promises";
 import path from "path";
+import { AsyncLocalStorage } from "async_hooks";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -18,6 +19,7 @@ const MAX_CONTEXT_TOKENS = 3000;
 // ==== Logging helpers (added) ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
 const TRUNC_LIMIT = 800;
+const als = new AsyncLocalStorage();
 
 function truncate(str, n = TRUNC_LIMIT) {
   if (typeof str !== "string") return str;
@@ -25,15 +27,21 @@ function truncate(str, n = TRUNC_LIMIT) {
 }
 function logSection(title) {
   if (!LOG_OPENAI) return;
+  const store = als.getStore();
+  if (store && store.logs) store.logs.push(`=== ${title} ===`);
   console.log(`\n=== ${title} ===`);
 }
 function logObj(label, obj) {
   if (!LOG_OPENAI) return;
+  const store = als.getStore();
+  let rendered;
   try {
-    console.log(label, JSON.stringify(obj, null, 2));
+    rendered = JSON.stringify(obj, null, 2);
   } catch {
-    console.log(label, obj);
+    rendered = String(obj);
   }
+  if (store && store.logs) store.logs.push(`${label}: ${rendered}`);
+  console.log(label, rendered);
 }
 function logOpenAIRequest(kind, payload) {
   if (!LOG_OPENAI) return;
@@ -174,10 +182,14 @@ function searchSummary(sumario, query) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
+  // inicia contexto de logs por requisição
+  als.enterWith({ logs: [] });
+  const getLogs = () => (LOG_OPENAI ? (als.getStore()?.logs || []) : undefined);
+
   try {
     const { question } = req.body;
     if (!question || !question.trim())
-      return res.status(400).json({ error: "Pergunta vazia" });
+      return res.status(400).json({ error: "Pergunta vazia", logs: getLogs() });
 
     if (LOG_OPENAI) {
       logSection("Incoming question");
@@ -278,7 +290,7 @@ export default async function handler(req, res) {
     });
 
     if (!ranked.length) {
-      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
     }
 
     if (LOG_OPENAI && ranked.length) {
@@ -302,7 +314,7 @@ export default async function handler(req, res) {
     // 6️⃣ Monta o contexto só da melhor página
     const snippet = (pageMap.get(bestPage) || "").trim();
     if (!snippet) {
-      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
     }
     const contextText = `--- Página ${bestPage} ---\n${snippet}\n`;
 
@@ -359,11 +371,12 @@ Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro.
 
     return res.status(200).json({
       answer,
-      used_pages: selectedPages
+      used_pages: selectedPages,
+      logs: getLogs()
     });
 
   } catch (err) {
     console.error("Erro no /api/chat:", err);
-    return res.status(500).json({ error: String(err) });
+    return res.status(500).json({ error: String(err), logs: getLogs() });
   }
 }
