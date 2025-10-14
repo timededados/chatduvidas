@@ -8,13 +8,14 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const DATA_DIR = path.join(process.cwd(), "data");
 const BOOK_PATH = path.join(DATA_DIR, "abramede_texto.json");
 const EMB_PATH = path.join(DATA_DIR, "abramede_embeddings.json");
+const SUM_PATH = path.join(DATA_DIR, "sumario_final.json");
 
 const EMB_MODEL = "text-embedding-3-small";
 const CHAT_MODEL = "gpt-4o-mini";
 const TOP_K = 6;
 const MAX_CONTEXT_TOKENS = 3000;
 
-// ------------------ Funções auxiliares ------------------
+// ---------- Funções auxiliares ----------
 function dot(a, b) {
   return a.reduce((s, v, i) => s + v * b[i], 0);
 }
@@ -25,7 +26,25 @@ function cosineSim(a, b) {
   return dot(a, b) / (norm(a) * norm(b) + 1e-8);
 }
 
-// ------------------ Função principal ------------------
+// Busca simples no sumário por similaridade textual
+function searchSummary(sumario, query) {
+  const normalized = query.toLowerCase();
+  const results = [];
+  for (const top of sumario) {
+    const allText = `${top.topico} ${top.subtopicos
+      ?.map(s => s.titulo)
+      .join(" ")}`.toLowerCase();
+    if (allText.includes(normalized)) {
+      results.push(...top.paginas);
+      for (const s of top.subtopicos || []) {
+        results.push(...(s.paginas || []));
+      }
+    }
+  }
+  return Array.from(new Set(results)).sort((a, b) => a - b);
+}
+
+// ---------- Função principal ----------
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
@@ -34,11 +53,10 @@ export default async function handler(req, res) {
     if (!question || !question.trim())
       return res.status(400).json({ error: "Pergunta vazia" });
 
-    // 1️⃣ Gerar variações da pergunta
+    // 1️⃣ Gera variações da pergunta
     const variationPrompt = `
-Você é um assistente que ajuda a gerar variações de consulta de busca em textos técnicos.
-Dada a pergunta do usuário, gere até 6 variações curtas (1-12 palavras cada) que mantenham o sentido,
-sem adicionar conteúdo novo. Responda apenas em JSON: {"variations": ["..."]}
+Gere até 6 variações curtas (1-12 palavras) da pergunta a seguir para ajudar na busca de conteúdo técnico.
+Responda em JSON: {"variations": ["..."]}
 
 Pergunta: """${question}"""
 `;
@@ -63,30 +81,22 @@ Pergunta: """${question}"""
       if (!variations.length) variations = [question];
     }
 
-    // 2️⃣ Carrega o livro
-    const bookRaw = await fs.readFile(BOOK_PATH, "utf8");
+    // 2️⃣ Carrega dados
+    const [bookRaw, embRaw, sumRaw] = await Promise.all([
+      fs.readFile(BOOK_PATH, "utf8"),
+      fs.readFile(EMB_PATH, "utf8"),
+      fs.readFile(SUM_PATH, "utf8")
+    ]);
     const pages = JSON.parse(bookRaw);
+    const pageEmbeddings = JSON.parse(embRaw);
+    const sumario = JSON.parse(sumRaw);
+
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
 
-    // 3️⃣ Carrega ou gera embeddings
-    let pageEmbeddings;
-    try {
-      const embRaw = await fs.readFile(EMB_PATH, "utf8");
-      pageEmbeddings = JSON.parse(embRaw);
-    } catch {
-      pageEmbeddings = [];
-      for (const p of pages) {
-        const txt = (p.texto || "").slice(0, 2000);
-        const emb = await openai.embeddings.create({
-          model: EMB_MODEL,
-          input: txt || " "
-        });
-        pageEmbeddings.push({ pagina: p.pagina, embedding: emb.data[0].embedding });
-      }
-      await fs.writeFile(EMB_PATH, JSON.stringify(pageEmbeddings), "utf8");
-    }
+    // 3️⃣ Busca no sumário
+    const pagesFromSummary = searchSummary(sumario, question);
 
-    // 4️⃣ Busca semântica
+    // 4️⃣ Busca semântica (embeddings)
     const aggregate = new Map();
     for (const query of variations) {
       const qEmb = await openai.embeddings.create({
@@ -101,36 +111,33 @@ Pergunta: """${question}"""
       }
     }
 
-    // Ordena páginas mais relevantes
     const sorted = Array.from(aggregate.entries())
       .map(([pagina, score]) => ({ pagina, score }))
       .sort((a, b) => b.score - a.score)
       .slice(0, TOP_K);
 
-    // 🔹 Inclui 1 página anterior e 1 posterior para cada selecionada
-    const expandedSet = new Set();
-    for (const { pagina } of sorted) {
-      expandedSet.add(pagina);
-      if (pagina > 1) expandedSet.add(pagina - 1);
-      expandedSet.add(pagina + 1);
-    }
+    const pagesFromEmbedding = sorted.map(p => p.pagina);
 
-    // Elimina duplicadas e ordena
+    // 5️⃣ Combina páginas do sumário + embeddings
+    const combinedSet = new Set([...pagesFromSummary, ...pagesFromEmbedding]);
+
+    // 6️⃣ Adiciona 1 página anterior e 1 posterior
+    const expandedSet = new Set();
+    for (const p of combinedSet) {
+      expandedSet.add(p);
+      if (p > 1) expandedSet.add(p - 1);
+      expandedSet.add(p + 1);
+    }
     const expandedPages = Array.from(expandedSet).sort((a, b) => a - b);
 
-    const selected = expandedPages.map(pagina => ({
-      pagina,
-      texto: pageMap.get(pagina) || ""
-    }));
-
-    // 5️⃣ Monta o contexto
+    // 7️⃣ Monta o contexto
     let contextBuilder = [];
     let totalLen = 0;
-    for (const s of selected) {
-      const snippet = (s.texto || "").trim();
+    for (const pagina of expandedPages) {
+      const snippet = (pageMap.get(pagina) || "").trim();
       const len = snippet.length;
       if (totalLen + len > MAX_CONTEXT_TOKENS * 4) break;
-      contextBuilder.push(`--- Página ${s.pagina} ---\n${snippet}\n`);
+      contextBuilder.push(`--- Página ${pagina} ---\n${snippet}\n`);
       totalLen += len;
     }
 
@@ -138,28 +145,26 @@ Pergunta: """${question}"""
     if (!contextText.trim())
       return res.json({ answer: "Não encontrei conteúdo no livro." });
 
-    // 6️⃣ Prompt para resposta literal e restrita
+    // 8️⃣ Prompt restritivo com citações literais
     const systemInstruction = `
 Você é um assistente que responde perguntas exclusivamente com base no texto abaixo.
 ⚠️ REGRAS IMPORTANTES:
-- NÃO adicione informações externas ao texto.
-- NÃO use conhecimento médico, técnico ou enciclopédico de fora do livro.
-- SÓ utilize frases, trechos ou paráfrases curtas do texto fornecido.
-- NÃO preencha lacunas nem interprete significados.
-- Se o texto não contiver a resposta, diga exatamente:
+- NÃO adicione informações externas.
+- Use APENAS as frases originais do texto fornecido.
+- Sempre inclua as citações exatas entre aspas e a página de origem.
+- Se a informação não estiver no texto, responda exatamente:
   "Não encontrei conteúdo no livro."
-- Cite sempre a(s) página(s) usada(s) entre parênteses, ex: (p. 45).
 `;
 
     const userPrompt = `
-Conteúdo do livro (trechos das páginas selecionadas):
+Conteúdo do livro (trechos das páginas):
 
 ${contextText}
 
 Pergunta do usuário:
 """${question}"""
 
-Responda de forma literal, usando apenas o texto acima.
+Responda usando SOMENTE as palavras originais do livro, citando entre aspas as partes utilizadas e a(s) página(s) correspondente(s).
 `;
 
     const chatResp = await openai.chat.completions.create({
@@ -169,7 +174,7 @@ Responda de forma literal, usando apenas o texto acima.
         { role: "user", content: userPrompt }
       ],
       temperature: 0,
-      max_tokens: 800
+      max_tokens: 900
     });
 
     const answer =
