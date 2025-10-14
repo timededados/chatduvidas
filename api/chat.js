@@ -76,6 +76,26 @@ function searchSummary(sumario, query) {
   return Array.from(new Set(results)).sort((a, b) => a - b);
 }
 
+// Janela de trecho e limites para contexto
+const CHUNK_CHAR_WINDOW = 1200;
+const CHUNK_CHAR_OVERLAP = 250;
+const MAX_TOPIC_PAGES = 16;
+const MAX_SNIPPETS = 18;
+
+// Utilidades de janelamento de página
+function splitIntoWindows(text, size = CHUNK_CHAR_WINDOW, overlap = CHUNK_CHAR_OVERLAP) {
+  const chunks = [];
+  const n = text.length;
+  if (!n) return chunks;
+  for (let start = 0; start < n; start += (size - overlap)) {
+    const end = Math.min(n, start + size);
+    chunks.push({ start, end, chunk: text.slice(start, end) });
+    if (end === n) break;
+  }
+  return chunks;
+}
+
+
 // ---------- Função principal ----------
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
@@ -94,11 +114,16 @@ export default async function handler(req, res) {
       fs.readFile(EMB_PATH, "utf8"),
       fs.readFile(SUM_PATH, "utf8")
     ]);
-    const pages = JSON.parse(bookRaw);
-    const pageEmbeddings = JSON.parse(embRaw);
-    const sumario = JSON.parse(sumRaw);
+    const pages = JSON.parse(bookRaw || "[]");
+    const pageEmbeddings = JSON.parse(embRaw || "[]");
+    const sumario = JSON.parse(sumRaw || "[]");
 
-    const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
+    if (!Array.isArray(pages) || pages.length === 0) {
+      console.warn("abramede_texto.json vazio ou sem páginas válidas.");
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
+    }
+
+    const pageMap = new Map(pages.map(p => [p.pagina, p.texto || ""]));
 
     // 3️⃣ Busca no sumário (inalterado)
     const pagesFromSummary = searchSummary(sumario, question);
@@ -195,33 +220,60 @@ export default async function handler(req, res) {
       selectedTopic = scored[0];
     }
 
-    // 6️⃣ Monta o contexto com páginas do tópico escolhido (ou fallback para melhores páginas globais)
+    // 6️⃣ Monta o contexto com trechos (janelas) das páginas do tópico escolhido
     let includedPages = [];
     let contextBuilder = [];
     let totalLen = 0;
 
+    const snippets = [];
+    function pushSnippet(pagina, start, end, text, pageScore, lex) {
+      // score final da janela combinando score da página + intensidade lexical
+      const lexNorm = Math.min(5, lex) / 5; // 0..1
+      const score = 0.8 * (pageScore || 0) + 0.2 * lexNorm;
+      snippets.push({ pagina, start, end, text, pageScore, lex, score });
+    }
+
     if (selectedTopic && selectedTopic.pages.length) {
-      // Ordenar páginas do tópico por relevância (score da página) e empatar por número da página
-      const orderedTopicPages = [...selectedTopic.pages].sort((a, b) => {
-        const sa = pageById.get(a)?.finalScore ?? -1;
-        const sb = pageById.get(b)?.finalScore ?? -1;
-        if (sb !== sa) return sb - sa;
-        return a - b;
-      });
+      const orderedTopicPages = [...selectedTopic.pages]
+        .slice(0, MAX_TOPIC_PAGES)
+        .sort((a, b) => {
+          const sa = pageById.get(a)?.finalScore ?? -1;
+          const sb = pageById.get(b)?.finalScore ?? -1;
+          if (sb !== sa) return sb - sa;
+          return a - b;
+        });
 
       for (const pagina of orderedTopicPages) {
-        const snippet = (pageMap.get(pagina) || "").trim();
-        if (!snippet) continue;
-        const len = snippet.length;
-        if (totalLen + len > MAX_CONTEXT_TOKENS * 4) break;
-        contextBuilder.push(`--- Página ${pagina} ---\n${snippet}\n`);
-        totalLen += len;
-        includedPages.push(pagina);
+        const raw = (pageMap.get(pagina) || "").trim();
+        if (!raw) continue;
+        const wins = splitIntoWindows(raw);
+        const pScore = pageById.get(pagina)?.finalScore ?? 0;
+        for (const w of wins) {
+          const normChunk = normalizeStr(w.chunk);
+          let lex = 0;
+          for (const t of qTokens) lex += countOccurrences(normChunk, t);
+          if (lex > 0) {
+            pushSnippet(pagina, w.start, w.end, w.chunk, pScore, lex);
+          }
+        }
+      }
+
+      // Se nenhuma janela teve match lexical, mantenha uma janela por página como fallback
+      if (snippets.length === 0) {
+        for (const pagina of orderedTopicPages) {
+          const raw = (pageMap.get(pagina) || "").trim();
+          if (!raw) continue;
+          const wins = splitIntoWindows(raw);
+          if (wins.length) {
+            const first = wins[0];
+            pushSnippet(pagina, first.start, first.end, first.chunk, pageById.get(pagina)?.finalScore ?? 0, 0);
+          }
+        }
       }
     }
 
-    // Fallback: se nada foi incluído do tópico, use as top páginas globais
-    if (!includedPages.length) {
+    // Fallback global: se ainda está vazio, use o fallback original por página inteira
+    if (snippets.length === 0) {
       for (const r of ranked.slice(0, TOP_K)) {
         const snippet = (pageMap.get(r.pagina) || "").trim();
         if (!snippet) continue;
@@ -231,14 +283,43 @@ export default async function handler(req, res) {
         totalLen += len;
         includedPages.push(r.pagina);
       }
+    } else {
+      // Ordenar janelas por score desc; empates por página asc, início asc
+      snippets.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (a.pagina !== b.pagina) return a.pagina - b.pagina;
+        return a.start - b.start;
+      });
+
+      // Selecionar as melhores janelas respeitando o orçamento
+      let used = 0;
+      for (const s of snippets) {
+        if (used >= MAX_SNIPPETS) break;
+        const len = s.text.length;
+        if (totalLen + len > MAX_CONTEXT_TOKENS * 4) break;
+        contextBuilder.push(`--- Página ${s.pagina} (trecho ${s.start}-${s.end}) ---\n${s.text}\n`);
+        totalLen += len;
+        used++;
+        includedPages.push(s.pagina);
+      }
+
+      // Garantir ao menos algo no contexto; se nada coube, force 1º snippet
+      if (contextBuilder.length === 0 && snippets.length > 0) {
+        const s = snippets[0];
+        contextBuilder.push(`--- Página ${s.pagina} (trecho ${s.start}-${s.end}) ---\n${s.text}\n`);
+        includedPages.push(s.pagina);
+      }
     }
+
+    // Normalizar páginas usadas
+    includedPages = Array.from(new Set(includedPages)).sort((a, b) => a - b);
 
     const contextText = contextBuilder.join("\n");
     if (!contextText.trim()) {
       return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
     }
 
-    // 7️⃣ Prompt restritivo: permitir múltiplas páginas e exigir citação literal com página
+    // 7️⃣ Prompt (permite múltiplas páginas com citação literal)
     const systemInstruction = `
 Você responde exclusivamente com base nos trechos abaixo.
 Regras:
@@ -249,16 +330,16 @@ Regras:
 `.trim();
 
     const userPrompt = `
-Conteúdo do livro (páginas selecionadas):
+Conteúdo do livro (trechos selecionados):
 ${contextText}
 
 Pergunta do usuário:
 """${question}"""
 
-Responda SOMENTE com base nesses trechos. Dê uma resposta objetiva e apresente as citações com a(s) página(s) correspondente(s).
+Responda SOMENTE com base nesses trechos. Seja objetivo e apresente as citações com a(s) página(s) correspondente(s).
 `.trim();
 
-    // 8️⃣ Geração determinística
+    // 8️⃣ Geração determinística (inalterado)
     const seed = seedFromString(question);
     const chatResp = await openai.chat.completions.create({
       model: CHAT_MODEL,
