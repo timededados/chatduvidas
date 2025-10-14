@@ -15,6 +15,61 @@ const CHAT_MODEL = "gpt-4o-mini";
 const TOP_K = 6;
 const MAX_CONTEXT_TOKENS = 3000;
 
+// ==== Logging helpers (added) ====
+const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
+const TRUNC_LIMIT = 800;
+
+function truncate(str, n = TRUNC_LIMIT) {
+  if (typeof str !== "string") return str;
+  return str.length > n ? str.slice(0, n) + `... [${str.length - n} more chars]` : str;
+}
+function logSection(title) {
+  if (!LOG_OPENAI) return;
+  console.log(`\n=== ${title} ===`);
+}
+function logObj(label, obj) {
+  if (!LOG_OPENAI) return;
+  try {
+    console.log(label, JSON.stringify(obj, null, 2));
+  } catch {
+    console.log(label, obj);
+  }
+}
+function logOpenAIRequest(kind, payload) {
+  if (!LOG_OPENAI) return;
+  const clone = { ...payload };
+  if (Array.isArray(clone.messages)) {
+    clone.messages = clone.messages.map(m => ({
+      role: m.role,
+      content: truncate(m.content, 600)
+    }));
+  }
+  if (typeof clone.input === "string") clone.input = truncate(clone.input, 600);
+  logSection(`OpenAI Request: ${kind}`);
+  logObj("payload", clone);
+}
+function logOpenAIResponse(kind, resp, extra = {}) {
+  if (!LOG_OPENAI) return;
+  const safe = {
+    id: resp.id,
+    model: resp.model,
+    usage: resp.usage,
+    created: resp.created,
+    choices: (resp.choices || []).map(c => ({
+      index: c.index,
+      finish_reason: c.finish_reason,
+      message: c.message ? {
+        role: c.message.role,
+        content: truncate(c.message.content, 600)
+      } : undefined
+    })),
+    ...extra
+  };
+  logSection(`OpenAI Response: ${kind}`);
+  logObj("data", safe);
+}
+// ==== End logging helpers ====
+
 // ---------- Funções auxiliares ----------
 function dot(a, b) {
   return a.reduce((s, v, i) => s + v * b[i], 0);
@@ -124,6 +179,11 @@ export default async function handler(req, res) {
     if (!question || !question.trim())
       return res.status(400).json({ error: "Pergunta vazia" });
 
+    if (LOG_OPENAI) {
+      logSection("Incoming question");
+      console.log("question:", question);
+    }
+
     // 1️⃣ Remover geração de variações estocásticas (multi-query) para evitar flutuação
     const variations = [question]; // consulta única e determinística
 
@@ -141,11 +201,19 @@ export default async function handler(req, res) {
 
     // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
     const pagesFromSummary = searchSummary(sumario, question);
+    if (LOG_OPENAI) {
+      console.log("pagesFromSummary:", pagesFromSummary);
+    }
 
     // 4️⃣ Consulta de embedding única
-    const qEmbResp = await openai.embeddings.create({
-      model: EMB_MODEL,
-      input: question
+    const embReq = { model: EMB_MODEL, input: question };
+    logOpenAIRequest("embeddings.create", embReq);
+    const tEmb0 = Date.now();
+    const qEmbResp = await openai.embeddings.create(embReq);
+    const embMs = Date.now() - tEmb0;
+    logOpenAIResponse("embeddings.create", qEmbResp, {
+      duration_ms: embMs,
+      embedding_dim: qEmbResp.data?.[0]?.embedding?.length
     });
     const queryEmb = qEmbResp.data[0].embedding;
 
@@ -168,6 +236,9 @@ export default async function handler(req, res) {
       candidatePages = Array.from(s).filter(p => pageMap.has(p) && embByPage.has(p));
     } else {
       candidatePages = pageEmbeddings.map(pe => pe.pagina).filter(p => pageMap.has(p));
+    }
+    if (LOG_OPENAI) {
+      console.log("candidatePages_count:", candidatePages.length);
     }
 
     // Calcular scores por página (apenas nos candidatos)
@@ -210,6 +281,20 @@ export default async function handler(req, res) {
       return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [] });
     }
 
+    if (LOG_OPENAI && ranked.length) {
+      const top = ranked[0];
+      logSection("Ranking top result");
+      logObj("top_page", {
+        pagina: top.pagina,
+        embScore: top.embScore,
+        lexScore: top.lexScore,
+        embNorm: top.embNorm,
+        lexNorm: top.lexNorm,
+        finalScore: top.finalScore,
+        inSummary: top.inSummary
+      });
+    }
+
     // 5️⃣ Seleciona 1 única página para contexto (consistência de citação)
     const bestPage = ranked[0].pagina;
     const selectedPages = [bestPage];
@@ -243,8 +328,7 @@ Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro.
 `.trim();
 
     // 8️⃣ Geração determinística
-    const seed = seedFromString(question);
-    const chatResp = await openai.chat.completions.create({
+    const chatReq = {
       model: CHAT_MODEL,
       messages: [
         { role: "system", content: systemInstruction },
@@ -256,12 +340,22 @@ Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro.
       presence_penalty: 0,
       n: 1,
       max_tokens: 900,
-      seed
-    });
+      seed: seedFromString(question)
+    };
+    logOpenAIRequest("chat.completions.create", chatReq);
+    const tChat0 = Date.now();
+    const chatResp = await openai.chat.completions.create(chatReq);
+    const chatMs = Date.now() - tChat0;
+    logOpenAIResponse("chat.completions.create", chatResp, { duration_ms: chatMs });
 
     const answer =
       chatResp.choices?.[0]?.message?.content?.trim() ||
       "Não encontrei conteúdo no livro.";
+
+    if (LOG_OPENAI) {
+      logSection("Final answer payload");
+      logObj("response", { answer, used_pages: selectedPages });
+    }
 
     return res.status(200).json({
       answer,
