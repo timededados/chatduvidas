@@ -26,25 +26,22 @@ function truncate(str, n = TRUNC_LIMIT) {
   return str.length > n ? str.slice(0, n) + `... [${str.length - n} more chars]` : str;
 }
 function logSection(title) {
-  if (!LOG_OPENAI) return;
   const store = als.getStore();
-  if (store && store.logs) store.logs.push(`=== ${title} ===`);
+  if (!(store && store.enabled)) return;
+  if (store.logs) store.logs.push(`=== ${title} ===`);
   console.log(`\n=== ${title} ===`);
 }
 function logObj(label, obj) {
-  if (!LOG_OPENAI) return;
   const store = als.getStore();
+  if (!(store && store.enabled)) return;
   let rendered;
-  try {
-    rendered = JSON.stringify(obj, null, 2);
-  } catch {
-    rendered = String(obj);
-  }
-  if (store && store.logs) store.logs.push(`${label}: ${rendered}`);
+  try { rendered = JSON.stringify(obj, null, 2); } catch { rendered = String(obj); }
+  if (store.logs) store.logs.push(`${label}: ${rendered}`);
   console.log(label, rendered);
 }
 function logOpenAIRequest(kind, payload) {
-  if (!LOG_OPENAI) return;
+  const store = als.getStore();
+  if (!(store && store.enabled)) return;
   const clone = { ...payload };
   if (Array.isArray(clone.messages)) {
     clone.messages = clone.messages.map(m => ({
@@ -57,7 +54,8 @@ function logOpenAIRequest(kind, payload) {
   logObj("payload", clone);
 }
 function logOpenAIResponse(kind, resp, extra = {}) {
-  if (!LOG_OPENAI) return;
+  const store = als.getStore();
+  if (!(store && store.enabled)) return;
   const safe = {
     id: resp.id,
     model: resp.model,
@@ -182,16 +180,18 @@ function searchSummary(sumario, query) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  // inicia contexto de logs por requisição
-  als.enterWith({ logs: [] });
-  const getLogs = () => (LOG_OPENAI ? (als.getStore()?.logs || []) : undefined);
+  // ativa logs se env ou debug=1 (query ou body)
+  const forceDebug = /^(1|true|yes|on)$/i.test(String(req.query?.debug ?? req.body?.debug ?? ""));
+  als.enterWith({ logs: [], enabled: LOG_OPENAI || forceDebug });
+  const getLogs = () => (als.getStore()?.logs || []);
 
   try {
     const { question } = req.body;
     if (!question || !question.trim())
       return res.status(400).json({ error: "Pergunta vazia", logs: getLogs() });
 
-    if (LOG_OPENAI) {
+    const storeEnabled = als.getStore()?.enabled;
+    if (storeEnabled) {
       logSection("Incoming question");
       console.log("question:", question);
     }
@@ -213,7 +213,7 @@ export default async function handler(req, res) {
 
     // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
     const pagesFromSummary = searchSummary(sumario, question);
-    if (LOG_OPENAI) {
+    if (als.getStore()?.enabled) {
       console.log("pagesFromSummary:", pagesFromSummary);
     }
 
@@ -249,7 +249,7 @@ export default async function handler(req, res) {
     } else {
       candidatePages = pageEmbeddings.map(pe => pe.pagina).filter(p => pageMap.has(p));
     }
-    if (LOG_OPENAI) {
+    if (als.getStore()?.enabled) {
       console.log("candidatePages_count:", candidatePages.length);
     }
 
@@ -293,7 +293,7 @@ export default async function handler(req, res) {
       return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
     }
 
-    if (LOG_OPENAI && ranked.length) {
+    if (als.getStore()?.enabled && ranked.length) {
       const top = ranked[0];
       logSection("Ranking top result");
       logObj("top_page", {
@@ -364,7 +364,7 @@ Se a página não contiver a resposta, diga: "Não encontrei conteúdo no livro.
       chatResp.choices?.[0]?.message?.content?.trim() ||
       "Não encontrei conteúdo no livro.";
 
-    if (LOG_OPENAI) {
+    if (als.getStore()?.enabled) {
       logSection("Final answer payload");
       logObj("response", { answer, used_pages: selectedPages });
     }
