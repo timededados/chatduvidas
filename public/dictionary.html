@@ -565,16 +565,18 @@
       } else {
         tagsInputWrapper.appendChild(frag);
       }
-
-      // Listeners para remover chips
-      tagsInputWrapper.querySelectorAll(".tag-chip button").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const tag = btn.dataset.tag;
-          selectedTags = selectedTags.filter(t => t !== tag);
-          renderSelectedTags();
-        });
-      });
     }
+
+    // Delegação para remover chip sem duplicidade de eventos
+    tagsInputWrapper.addEventListener("pointerdown", (e) => {
+      const btn = e.target.closest(".tag-chip button");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const tag = btn.dataset.tag;
+      selectedTags = selectedTags.filter(t => t !== tag);
+      renderSelectedTags();
+    });
 
     function filterAndShowDropdown(searchTerm) {
       const term = searchTerm.toLowerCase().trim();
@@ -667,8 +669,8 @@
       $$("input[name='pago']").forEach(r => r.checked = (r.value === pagoVal));
       $("#link").value = d.link || "";
       
-      // Atualizar tags selecionadas
-      selectedTags = Array.isArray(d.tags) ? [...d.tags] : [];
+      // Atualizar tags selecionadas (dedup)
+      selectedTags = Array.isArray(d.tags) ? [...new Set(d.tags)] : [];
       renderSelectedTags();
     }
 
