@@ -582,19 +582,35 @@ export default async function handler(req, res) {
       if (lexScore > maxLex) maxLex = lexScore;
     }
 
-    const ranked = prelim.map(r => {
-      const embNorm = (r.embScore - minEmb) / (Math.max(1e-8, maxEmb - minEmb));
-      const lexNorm = maxLex > 0 ? r.lexScore / maxLex : 0;
+    // ====================== BOOST LEXICAL AJUSTADO ======================
 
-      // Se temos páginas do sumário, aumentamos fortemente o peso delas
-      const summaryBoost = r.inSummary ? (pagesFromSummary.length ? 0.5 : 0.08) : 0;
+    // fator de amplificação do peso lexical (1.0 = neutro, >1 aumenta peso das palavras da pergunta)
+    const LEXICAL_BOOST = 1.2;
 
-      const finalScore = 0.7 * embNorm + 0.3 * lexNorm + summaryBoost;
-      return { ...r, embNorm, lexNorm, finalScore };
-    }).sort((a, b) => {
-      if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
-      return a.pagina - b.pagina; // desempate determinístico
-    });
+    // valor base do boost para páginas vindas do sumário
+    const SUMMARY_BOOST_BASE = pagesFromSummary.length ? 0.5 : 0.08;
+
+    const ranked = prelim
+      .map(r => {
+        const embNorm = (r.embScore - minEmb) / Math.max(1e-8, maxEmb - minEmb);
+        const lexNorm = maxLex > 0 ? r.lexScore / maxLex : 0;
+
+        // 🔹 camada de boost lexical: amplifica ligeiramente o impacto de lexNorm
+        const lexicalBoostFactor = 1 + (lexNorm * (LEXICAL_BOOST - 1));
+
+        const summaryBoost = r.inSummary ? SUMMARY_BOOST_BASE : 0;
+
+        // 🔹 pontuação final combinando embeddings, lexNorm e boosts
+        const finalScore = (0.7 * embNorm + 0.3 * lexNorm) * lexicalBoostFactor + summaryBoost;
+
+        return { ...r, embNorm, lexNorm, finalScore, lexicalBoostFactor };
+      })
+      .sort((a, b) => {
+        if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+        return a.pagina - b.pagina; // desempate determinístico
+      });
+
+    // =====================================================================
 
     if (!ranked.length) {
       return res.json({
