@@ -109,10 +109,32 @@
       opacity: 0.7;
       margin-top: 4px;
     }
+    .link-btn {
+      background: var(--primary);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 14px;
+      transition: 0.2s;
+    }
+    .link-btn:hover {
+      background: #3573f7;
+    }
+    .top-actions {
+      width: 90%;
+      max-width: 800px;
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+    }
   </style>
 </head>
 <body>
   <h2>💬 Chat - Livro Abramede</h2>
+  <div class="top-actions">
+    <a class="link-btn" href="/dictionary.html" title="Abrir dicionário">📚 Dicionário</a>
+  </div>
   <div id="chat-container">
     <div id="chat"></div>
     <div id="input-area">

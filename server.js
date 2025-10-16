@@ -21,8 +21,10 @@ import OpenAI from "openai";
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(process.cwd(), "data");
-const BOOK_PATH = path.join(DATA_DIR, "abramede_texto.json"); // já enviado. :contentReference[oaicite:2]{index=2}
-const EMB_PATH = path.join(DATA_DIR, "abramede_embeddings.json"); // opcional
+const BOOK_PATH = path.join(DATA_DIR, "abramede_texto.json");
+const EMB_PATH = path.join(DATA_DIR, "abramede_embeddings.json");
+// Adicionado: caminho do dicionário
+const DICT_PATH = path.join(DATA_DIR, "dictionary.json");
 const TOP_K = 6; // quantas páginas pegar por busca
 const EMB_MODEL = "text-embedding-3-small";
 const CHAT_MODEL = "gpt-4o-mini"; // você pode trocar (por exemplo gpt-4o)
@@ -110,6 +112,114 @@ async function semanticSearch(queryEmbedding, pageEmbeddings, pages, topK = TOP_
   const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
   return top.map(t => ({ pagina: t.pagina, texto: pageMap.get(t.pagina) || "", score: t.score }));
 }
+
+// Adicionado: utilitários para o dicionário
+async function ensureDataDir() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+}
+async function loadDictionary() {
+  try {
+    const raw = await fs.readFile(DICT_PATH, "utf8");
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) throw new Error("Formato inválido do dicionário");
+    return arr;
+  } catch {
+    return [];
+  }
+}
+async function saveDictionary(arr) {
+  await ensureDataDir();
+  await fs.writeFile(DICT_PATH, JSON.stringify(arr, null, 2), "utf8");
+}
+function genId() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+function validateEntry(input) {
+  const titulo = String(input.titulo || "").trim();
+  if (!titulo) return { ok: false, error: "titulo é obrigatório" };
+  const autor = String(input.autor || "").trim();
+  const tipoConteudo =
+    String(input.tipoConteudo || input["tipo de conteudo"] || input.tipo || "").trim();
+  let pagoRaw = input.pago;
+  if (typeof pagoRaw === "string") {
+    const l = pagoRaw.toLowerCase();
+    pagoRaw = l === "sim" || l === "true" || l === "1";
+  }
+  const pago = Boolean(pagoRaw);
+  const link = String(input.link || "").trim();
+  if (link && !/^https?:\/\/\S+/i.test(link)) return { ok: false, error: "link inválido" };
+  let tags = input.tags;
+  if (typeof tags === "string") {
+    tags = tags.split(",").map(t => t.trim()).filter(Boolean);
+  }
+  if (!Array.isArray(tags)) tags = [];
+  return { ok: true, value: { titulo, autor, tipoConteudo, pago, link, tags } };
+}
+
+// Adicionado: Endpoints CRUD do dicionário
+app.get("/api/dict", async (req, res) => {
+  try {
+    const items = await loadDictionary();
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.get("/api/dict/:id", async (req, res) => {
+  try {
+    const items = await loadDictionary();
+    const found = items.find(i => i.id === req.params.id);
+    if (!found) return res.status(404).json({ error: "Não encontrado" });
+    res.json(found);
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.post("/api/dict", async (req, res) => {
+  try {
+    const v = validateEntry(req.body || {});
+    if (!v.ok) return res.status(400).json({ error: v.error });
+    const items = await loadDictionary();
+    const now = new Date().toISOString();
+    const item = { id: genId(), createdAt: now, updatedAt: now, ...v.value };
+    items.push(item);
+    await saveDictionary(items);
+    res.status(201).json(item);
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.put("/api/dict/:id", async (req, res) => {
+  try {
+    const items = await loadDictionary();
+    const idx = items.findIndex(i => i.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: "Não encontrado" });
+    const v = validateEntry(req.body || {});
+    if (!v.ok) return res.status(400).json({ error: v.error });
+    const now = new Date().toISOString();
+    items[idx] = { ...items[idx], ...v.value, updatedAt: now };
+    await saveDictionary(items);
+    res.json(items[idx]);
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.delete("/api/dict/:id", async (req, res) => {
+  try {
+    const items = await loadDictionary();
+    const exists = items.some(i => i.id === req.params.id);
+    if (!exists) return res.status(404).json({ error: "Não encontrado" });
+    const filtered = items.filter(i => i.id !== req.params.id);
+    await saveDictionary(filtered);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
 
 // endpoint principal do chat
 app.post("/api/chat", async (req, res) => {

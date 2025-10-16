@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Dicionário de Consulta</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    form { display: grid; gap: 10px; max-width: 640px; margin-bottom: 24px; }
+    label { display: grid; gap: 6px; }
+    input[type="text"], input[type="url"], select { padding: 8px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
+    th { background: #f5f5f5; }
+    .actions button { margin-right: 6px; }
+    .muted { color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Dicionário de Consulta</h1>
+
+  <form id="dictForm">
+    <input type="hidden" id="entryId" />
+    <label>
+      Título (obrigatório)
+      <input type="text" id="titulo" required />
+    </label>
+    <div class="row">
+      <label>
+        Autor
+        <input type="text" id="autor" />
+      </label>
+      <label>
+        Tipo de conteúdo
+        <input type="text" id="tipoConteudo" placeholder="ex: artigo, vídeo, livro..." />
+      </label>
+    </div>
+    <div class="row">
+      <label>
+        Pago?
+        <span>
+          <label><input type="radio" name="pago" value="nao" checked /> Não</label>
+          <label><input type="radio" name="pago" value="sim" /> Sim</label>
+        </span>
+      </label>
+      <label>
+        Link
+        <input type="url" id="link" placeholder="https://..." />
+      </label>
+    </div>
+    <label>
+      Tags (separadas por vírgula)
+      <input type="text" id="tags" placeholder="ex: cardiologia, emergência" />
+    </label>
+    <div>
+      <button type="submit" id="saveBtn">Salvar</button>
+      <button type="button" id="resetBtn">Limpar</button>
+    </div>
+    <div id="msg" class="muted"></div>
+  </form>
+
+  <h2>Itens cadastrados</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Título</th>
+        <th>Autor</th>
+        <th>Tipo</th>
+        <th>Pago</th>
+        <th>Link</th>
+        <th>Tags</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="listBody"></tbody>
+  </table>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    function setMsg(text, isError=false) {
+      const el = $("#msg");
+      el.textContent = text || "";
+      el.style.color = isError ? "#b00020" : "#666";
+    }
+
+    function formToPayload() {
+      const titulo = $("#titulo").value.trim();
+      const autor = $("#autor").value.trim();
+      const tipoConteudo = $("#tipoConteudo").value.trim();
+      const pagoVal = $$("input[name='pago']:checked")[0]?.value || "nao";
+      const pago = pagoVal === "sim";
+      const link = $("#link").value.trim();
+      const tagsStr = $("#tags").value.trim();
+      const tags = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(Boolean) : [];
+      return { titulo, autor, tipoConteudo, pago, link, tags };
+    }
+
+    function payloadToForm(d) {
+      $("#titulo").value = d.titulo || "";
+      $("#autor").value = d.autor || "";
+      $("#tipoConteudo").value = d.tipoConteudo || "";
+      const pagoVal = d.pago ? "sim" : "nao";
+      $$("input[name='pago']").forEach(r => r.checked = (r.value === pagoVal));
+      $("#link").value = d.link || "";
+      $("#tags").value = Array.isArray(d.tags) ? d.tags.join(", ") : "";
+    }
+
+    async function loadList() {
+      const res = await fetch("/api/dict");
+      const data = await res.json();
+      renderList(data);
+    }
+
+    function renderList(items) {
+      const body = $("#listBody");
+      body.innerHTML = "";
+      items.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(item.titulo)}</td>
+          <td>${escapeHtml(item.autor || "")}</td>
+          <td>${escapeHtml(item.tipoConteudo || "")}</td>
+          <td>${item.pago ? "Sim" : "Não"}</td>
+          <td>${item.link ? `<a href="${escapeAttr(item.link)}" target="_blank">abrir</a>` : ""}</td>
+          <td>${(item.tags || []).map(escapeHtml).join(", ")}</td>
+          <td class="actions">
+            <button data-act="edit" data-id="${item.id}">Editar</button>
+            <button data-act="del" data-id="${item.id}">Excluir</button>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+      body.querySelectorAll("button[data-act='edit']").forEach(btn => {
+        btn.addEventListener("click", () => onEdit(btn.dataset.id));
+      });
+      body.querySelectorAll("button[data-act='del']").forEach(btn => {
+        btn.addEventListener("click", () => onDelete(btn.dataset.id));
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+      }[c]));
+    }
+    function escapeAttr(s) {
+      return String(s).replace(/"/g, "&quot;");
+    }
+
+    async function onEdit(id) {
+      const res = await fetch(`/api/dict/${id}`);
+      if (!res.ok) {
+        setMsg("Erro ao carregar item para edição.", true);
+        return;
+      }
+      const item = await res.json();
+      $("#entryId").value = item.id;
+      payloadToForm(item);
+      setMsg("Editando item.");
+      $("#titulo").focus();
+    }
+
+    async function onDelete(id) {
+      if (!confirm("Excluir este item?")) return;
+      const res = await fetch(`/api/dict/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        setMsg("Erro ao excluir: " + (e.error || res.statusText), true);
+        return;
+      }
+      setMsg("Item excluído.");
+      await loadList();
+      resetForm();
+    }
+
+    async function onSubmit(e) {
+      e.preventDefault();
+      setMsg("");
+      const id = $("#entryId").value;
+      const payload = formToPayload();
+      try {
+        const url = id ? `/api/dict/${id}` : "/api/dict";
+        const method = id ? "PUT" : "POST";
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        setMsg(id ? "Item atualizado." : "Item criado.");
+        await loadList();
+        resetForm();
+      } catch (err) {
+        setMsg(String(err.message || err), true);
+      }
+    }
+
+    function resetForm() {
+      $("#entryId").value = "";
+      payloadToForm({ titulo: "", autor: "", tipoConteudo: "", pago: false, link: "", tags: [] });
+    }
+
+    $("#dictForm").addEventListener("submit", onSubmit);
+    $("#resetBtn").addEventListener("click", () => { resetForm(); setMsg("Formulário limpo."); });
+
+    loadList();
+  </script>
+</body>
+</html>
