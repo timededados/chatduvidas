@@ -1,6 +1,3 @@
-//arquivo atual
-
-
 // api/chat.js
 import OpenAI from "openai";
 import fs from "fs/promises";
@@ -23,6 +20,10 @@ const MAX_CONTEXT_TOKENS = 3000;
 // +++ Novo: limites para recomendação do dicionário +++
 const DICT_MAX_CANDIDATES = 20;   // candidatos enviados ao modelo
 const DICT_MAX_RECOMMEND = 5;     // máximo de recomendações finais
+
+// +++ NOVO: Configuração de expansão de contexto +++
+const EXPAND_CONTEXT = true;      // Ativar expansão de páginas adjacentes
+const ADJACENT_RANGE = 1;         // Quantas páginas antes/depois incluir (1 = uma antes e uma depois)
 
 // ==== Logging helpers (added) ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
@@ -141,6 +142,35 @@ function extractCitedPages(text) {
     }
   }
   return Array.from(set).sort((a, b) => a - b);
+}
+
+// +++ NOVA FUNÇÃO: Expande páginas com adjacentes +++
+function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE) {
+  const expandedSet = new Set();
+  
+  for (const page of selectedPages) {
+    // Adiciona a página original
+    expandedSet.add(page);
+    
+    // Adiciona páginas anteriores
+    for (let i = 1; i <= range; i++) {
+      const prevPage = page - i;
+      if (pageMap.has(prevPage)) {
+        expandedSet.add(prevPage);
+      }
+    }
+    
+    // Adiciona páginas posteriores
+    for (let i = 1; i <= range; i++) {
+      const nextPage = page + i;
+      if (pageMap.has(nextPage)) {
+        expandedSet.add(nextPage);
+      }
+    }
+  }
+  
+  // Retorna array ordenado
+  return Array.from(expandedSet).sort((a, b) => a - b);
 }
 
 // Adicionado: funções de busca no sumário (faltavam)
@@ -589,9 +619,27 @@ export default async function handler(req, res) {
       });
     }
 
-    // 5️⃣ Seleciona até 2 páginas para contexto
+    // 5️⃣ Seleciona até 2 páginas principais
     const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
-    const nonEmptyPages = selectedPages.filter(p => (pageMap.get(p) || "").trim());
+    
+    // +++ NOVO: Expande com páginas adjacentes +++
+    let finalPages;
+    if (EXPAND_CONTEXT) {
+      finalPages = expandWithAdjacentPages(selectedPages, pageMap, ADJACENT_RANGE);
+      
+      if (als.getStore()?.enabled) {
+        logSection("Expansão de contexto");
+        logObj("original_pages", selectedPages);
+        logObj("expanded_pages", finalPages);
+        logObj("adjacent_range", ADJACENT_RANGE);
+      }
+    } else {
+      finalPages = selectedPages;
+    }
+    
+    // Filtra páginas não vazias
+    const nonEmptyPages = finalPages.filter(p => (pageMap.get(p) || "").trim());
+    
     if (!nonEmptyPages.length) {
       return res.json({
         answer: "Não encontrei conteúdo no livro.",
@@ -600,48 +648,53 @@ export default async function handler(req, res) {
         logs: getLogs()
       });
     }
+    
     if (als.getStore()?.enabled) {
-      logSection("Páginas selecionadas para contexto");
-      logObj("selectedPages", nonEmptyPages);
+      logSection("Páginas finais para contexto");
+      logObj("finalPages", nonEmptyPages);
+      logObj("total_pages", nonEmptyPages.length);
     }
 
-    // 6️⃣ Monta o contexto (1 ou 2 páginas)
+    // 6️⃣ Monta o contexto com todas as páginas (incluindo adjacentes)
     const contextText = nonEmptyPages.map(p =>
       `--- Página ${p} ---\n${(pageMap.get(p) || "").trim()}\n`
     ).join("\n");
+    
     if (als.getStore()?.enabled) {
       logSection("Contexto bruto");
+      logObj("contextText_length", contextText.length);
       logObj("contextText_trunc", truncate(contextText, 1000));
     }
 
-    // 7️⃣ Prompt restritivo multi-página
+    // 7️⃣ Prompt atualizado para lidar com múltiplas páginas
     const systemInstruction = `
-Você responde exclusivamente com base nos textos abaixo (até 2 páginas).
+Você responde exclusivamente com base nos textos fornecidos (múltiplas páginas).
 Regras:
 - Sempre considere que a pergunta se refere a um adulto caso não seja solicitada informações especificas de pediatria e RN
 - Não adicione informações externas.
 - Use somente frases originais dos textos fornecidos.
-- Avalie cada página separadamente.
-- Se somente uma página contiver a resposta, cite apenas "Página X" e use pelo menos 1 trecho literal entre aspas dessa página.
-- Se as duas páginas tiverem partes relevantes, combine a resposta citando claramente ambas (ex: Página 10: "..." / Página 11: "...").
-- Use sempre "Página X" ao citar.
+- Avalie todas as páginas fornecidas.
+- Cite apenas as páginas que realmente contêm a informação usada na resposta.
+- Use "Página X" ao citar e inclua pelo menos 1 trecho literal entre aspas dessa página.
+- Se múltiplas páginas tiverem informações relevantes, cite todas elas claramente.
 - Não invente página que não está no contexto.
 - Se nenhuma página contiver a resposta, responda exatamente: "Não encontrei conteúdo no livro."
 `.trim();
 
     const userPrompt = `
-Conteúdo do livro (1 ou 2 páginas):
+Conteúdo do livro (${nonEmptyPages.length} páginas):
 ${contextText}
 
 Pergunta do usuário:
 """${question}"""
 
 Instruções de resposta:
-1. Indique apenas as páginas que realmente suportam a resposta.
-2. Use somente trechos literais entre aspas exatamente como aparecem.
-3. Se as duas páginas forem úteis, una-as citando ambas separadamente.
-4. Se só uma tiver informação útil, cite apenas essa.
-5. Caso nenhuma tenha a resposta: "Não encontrei conteúdo no livro."
+1. Leia todas as páginas fornecidas cuidadosamente.
+2. Identifique quais páginas contêm informações relevantes.
+3. Use somente trechos literais entre aspas exatamente como aparecem.
+4. Cite cada página que contribui com informação (ex: "Página 10: ...").
+5. Se a informação estiver distribuída entre páginas, organize de forma clara.
+6. Caso nenhuma página tenha a resposta: "Não encontrei conteúdo no livro."
 `.trim();
 
     // 8️⃣ Geração determinística
@@ -671,7 +724,12 @@ Instruções de resposta:
 
     if (als.getStore()?.enabled) {
       logSection("Resposta final");
-      logObj("payload", { answer, used_pages: nonEmptyPages });
+      logObj("payload", { 
+        answer, 
+        used_pages: nonEmptyPages,
+        original_selection: selectedPages,
+        expanded_context: EXPAND_CONTEXT
+      });
     }
 
     // +++ Novo: etapa de recomendação do dicionário e concatenação da resposta +++
@@ -689,6 +747,8 @@ Instruções de resposta:
     return res.status(200).json({
       answer: finalAnswer,
       used_pages: nonEmptyPages,
+      original_pages: selectedPages,
+      expanded_context: EXPAND_CONTEXT,
       question_used: question,
       logs: getLogs()
     });
