@@ -259,82 +259,52 @@ function buttonForType(tipoRaw, isPremium) {
   return { label: "🔗 Acessar conteúdo", kind: isPremium ? "premium" : "primary" };
 }
 
-// +++ LAYOUT CORRIGIDO: estilos inline mais compactos e organizados
+// +++ LAYOUT CORRIGIDO: HTML compacto e limpo
 function btnStyle(kind) {
-  const base = "display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:500;font-size:14px;border:1px solid;";
-  if (kind === "accent") return `${base}background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.3);color:#38bdf8;`;
-  if (kind === "premium") return `${base}background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);color:#f59e0b;`;
-  return `${base}background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#22c55e;`;
+  const base = "display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:500;font-size:13px;border:1px solid;cursor:pointer;";
+  if (kind === "accent") return base + "background:rgba(56,189,248,0.08);border-color:rgba(56,189,248,0.25);color:#38bdf8;";
+  if (kind === "premium") return base + "background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:#f59e0b;";
+  return base + "background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);color:#22c55e;";
 }
 
-// +++ LAYOUT CORRIGIDO: renderiza lista de itens do dicionário com espaçamento otimizado
+// +++ LAYOUT CORRIGIDO: renderiza lista de itens com HTML mínimo
 function renderDictItemsList(items, isPremiumSection) {
   if (!items.length) return "";
   
-  const itemHtml = items.map(it => {
+  const itemsHtml = items.map(it => {
     const titulo = escapeHtml(it.titulo || "");
     const autor = it.autor ? ` <span style="color:#94a3b8">— ${escapeHtml(it.autor)}</span>` : "";
     const tipo = it.tipoConteudo || it.tipo_conteudo || "";
     const { label, kind } = buttonForType(tipo, !!it.pago);
-    const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank" rel="noopener noreferrer"` : "";
-    const btn = it.link ? `<a style="${btnStyle(kind)}"${href}>${label}</a>` : "";
-    const img = it.imagemUrl
-      ? `<img src="${escapeAttr(it.imagemUrl)}" alt="" style="max-width:200px;max-height:120px;border-radius:8px;margin-top:8px;display:block;">`
-      : "";
+    const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank"` : "";
+    const btn = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
     
-    return `<div style="padding:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px;">
-      <div style="font-weight:500;margin-bottom:6px;">${titulo}${autor}</div>
-      ${btn}
-      ${img}
-    </div>`;
+    return `<div style="padding:10px;border:1px solid #1f2937;border-radius:8px;background:rgba(255,255,255,0.015);margin-bottom:8px"><div><strong>${titulo}</strong>${autor}</div>${btn}</div>`;
   }).join("");
   
-  const labelColor = isPremiumSection ? "#f59e0b" : "#38bdf8";
-  const labelText = isPremiumSection ? "CONTEÚDO PREMIUM" : "CONTEÚDO COMPLEMENTAR";
+  const color = isPremiumSection ? "#f59e0b" : "#22c55e";
+  const label = isPremiumSection ? "Conteúdo premium (opcional)" : "Conteúdo complementar (acesso incluído)";
   
-  return `<div style="background:#0f1419;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin:12px 0;">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
-      <span style="width:6px;height:6px;background:${labelColor};border-radius:50%;display:inline-block;"></span>
-      <span style="color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:0.5px;">${labelText}</span>
-    </div>
-    ${itemHtml}
-  </div>`;
+  return `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${label}</span><div style="margin-top:10px">${itemsHtml}</div></section>`;
 }
 
-// +++ LAYOUT CORRIGIDO: HTML final com estrutura simplificada e espaçamento otimizado
+// +++ LAYOUT CORRIGIDO: HTML final ultra compacto
 function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
-  // Cabeçalho simplificado
-  const header = `<div style="margin-bottom:16px;">
-    <h2 style="font-size:18px;margin:0 0 8px 0;font-weight:600;">✅ Encontrei a informação que responde à sua dúvida</h2>
-    <p style="color:#94a3b8;margin:0;font-size:14px;">Abaixo está a resposta do livro-base e materiais complementares.</p>
-  </div>`;
+  // Header conciso
+  const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600">Encontrei a informação que responde à sua dúvida 👇</h1><p style="color:#94a3b8;margin:0;font-size:13px">Primeiro o livro-base, depois material complementar (gratuito) e, por fim, um conteúdo premium opcional.</p></header>`;
 
-  // Seção do livro com layout otimizado
-  const libro = `<div style="background:#0f1419;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin:12px 0;">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
-      <span style="width:6px;height:6px;background:#38bdf8;border-radius:50%;display:inline-block;"></span>
-      <span style="color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:0.5px;">LIVRO BASE</span>
-    </div>
-    <div style="border-left:3px solid #38bdf8;padding-left:12px;background:rgba(56,189,248,0.05);padding:12px;border-radius:6px;">
-      <div style="line-height:1.6;">${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div>
-      <div style="color:#64748b;font-size:12px;margin-top:8px;">Fonte: Livro-base do curso</div>
-    </div>
-  </div>`;
+  // Livro - seção principal
+  const bookSection = `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>Livro (fonte principal)</span><div style="position:relative;padding:12px 14px;border-left:3px solid #38bdf8;background:rgba(56,189,248,0.06);border-radius:6px;line-height:1.5;margin-top:10px"><div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div><small style="display:block;color:#94a3b8;margin-top:6px;font-size:11px">Trechos do livro-base do curso.</small></div></section>`;
 
-  // Separar itens gratuitos e premium
+  // Separar e renderizar itens
   const freeItems = (dictItems || []).filter(x => !x.pago);
   const premiumItems = (dictItems || []).filter(x => x.pago);
+  
+  let content = header + bookSection;
+  if (freeItems.length) content += renderDictItemsList(freeItems, false);
+  if (premiumItems.length) content += renderDictItemsList(premiumItems, true);
 
-  const freeBlock = freeItems.length ? renderDictItemsList(freeItems, false) : "";
-  const premiumBlock = premiumItems.length ? renderDictItemsList(premiumItems, true) : "";
-
-  // Monta o HTML final com layout compacto
-  return `<div style="max-width:700px;font-family:system-ui,-apple-system,sans-serif;">
-    ${header}
-    ${libro}
-    ${freeBlock}
-    ${premiumBlock}
-  </div>`;
+  return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${content}</div>`;
 }
 
 // Adicionado: recomendação a partir do dicionário (retorna apenas os itens selecionados)
