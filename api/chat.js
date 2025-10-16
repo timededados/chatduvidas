@@ -1,9 +1,10 @@
+// arquivo anterior que funcionava
+
 // api/chat.js
 import OpenAI from "openai";
 import fs from "fs/promises";
 import path from "path";
 import { AsyncLocalStorage } from "async_hooks";
-import { toFile } from "openai/uploads";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -16,10 +17,6 @@ const EMB_MODEL = "text-embedding-3-small";
 const CHAT_MODEL = "gpt-4o-mini";
 const TOP_K = 6;
 const MAX_CONTEXT_TOKENS = 3000;
-
-// +++ Novo: limites para recomendação do dicionário +++
-const DICT_MAX_CANDIDATES = 20;   // candidatos enviados ao modelo
-const DICT_MAX_RECOMMEND = 5;     // máximo de recomendações finais
 
 // ==== Logging helpers (added) ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
@@ -121,26 +118,7 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
-// Novo: extrai páginas citadas no texto final (ex.: "Página 10", "(p. 10)")
-function extractCitedPages(text) {
-  if (!text) return [];
-  const set = new Set();
-  const patterns = [
-    /página\s+(\d+)/gi,    // "Página 123"
-    /pagina\s+(\d+)/gi,    // "Pagina 123" (sem acento)
-    /\(p\.\s*(\d+)\)/gi    // "(p. 123)"
-  ];
-  for (const re of patterns) {
-    let m;
-    while ((m = re.exec(text)) !== null) {
-      const n = parseInt(m[1], 10);
-      if (!isNaN(n)) set.add(n);
-    }
-  }
-  return Array.from(set).sort((a, b) => a - b);
-}
-
-// Adicionado: funções de busca no sumário (faltavam)
+// Índice de sumário com acrônimos e sinônimos
 function buildSummaryIndex(sumario) {
   const index = new Map();
   const addKey = (key, pages) => {
@@ -151,6 +129,7 @@ function buildSummaryIndex(sumario) {
     index.set(k, set);
   };
 
+  // Indexa tópicos e subcapítulos + acrônimos
   for (const top of sumario || []) {
     const topPages = top?.paginas || [];
     if (top?.topico) addKey(top.topico, topPages);
@@ -162,12 +141,13 @@ function buildSummaryIndex(sumario) {
         const tokens = normalizeStr(st.titulo).split(/\W+/).filter(Boolean);
         if (tokens.length >= 2) {
           const acronym = tokens.map(w => w[0]).join("");
-          addKey(acronym, stPages);
+          addKey(acronym, stPages); // ex: "Ressuscitação cardiopulmonar" -> "rcp"
         }
       }
     }
   }
 
+  // Heurísticas leves: sinônimos comuns mapeados às páginas corretas via sumário
   const findPagesBySubtopicTitle = (needleNorm) => {
     for (const top of sumario || []) {
       for (const st of top?.subtopicos || []) {
@@ -179,6 +159,7 @@ function buildSummaryIndex(sumario) {
     return [];
   };
 
+  // RCP
   const rcpPages = findPagesBySubtopicTitle("ressuscitacao cardiopulmonar");
   if (rcpPages.length) {
     [
@@ -195,6 +176,7 @@ function buildSummaryIndex(sumario) {
   return index;
 }
 
+// Busca no sumário (agora usando índice com acrônimos/sinônimos)
 function searchSummary(sumario, query) {
   const idx = buildSummaryIndex(sumario);
   const nq = normalizeStr(query);
@@ -207,239 +189,6 @@ function searchSummary(sumario, query) {
   return Array.from(hits).sort((a, b) => a - b);
 }
 
-// +++ Novo: helpers para recomendação do dicionário +++
-function buildBaseUrl(req) {
-  const proto = req.headers["x-forwarded-proto"] || "http";
-  const host = req.headers.host || "localhost";
-  return `${proto}://${host}`;
-}
-
-function scoreDictItem(item, qTokens) {
-  const parts = [
-    item.titulo || "",
-    item.autor || "",
-    item.tipoConteudo || item.tipo_conteudo || "",
-    Array.isArray(item.tags) ? item.tags.join(" ") : ""
-  ];
-  const text = normalizeStr(parts.join(" | "));
-  let score = 0;
-  for (const t of qTokens) {
-    // prioriza match de tokens do título e tags
-    const inTitulo = countOccurrences(normalizeStr(item.titulo || ""), t);
-    const inTags = countOccurrences(normalizeStr((item.tags || []).join(" ")), t);
-    const inRest = countOccurrences(text, t);
-    score += inTitulo * 3 + inTags * 2 + Math.max(inRest, 0);
-  }
-  return score;
-}
-
-function pickTopDictCandidates(items, question, limit = DICT_MAX_CANDIDATES) {
-  const qNorm = normalizeStr(question);
-  const qTokens = Array.from(new Set(qNorm.split(/\W+/).filter(w => w && w.length > 2)));
-  const withScores = (items || []).map(it => ({ it, s: scoreDictItem(it, qTokens) }));
-  withScores.sort((a, b) => b.s - a.s);
-  return withScores.slice(0, limit).map(x => x.it);
-}
-
-// Adicionado: helpers para escapar HTML/atributos
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
-}
-function escapeAttr(s) {
-  return String(s).replace(/"/g, "&quot;");
-}
-
-// +++ Novo: mapeia tipo de conteúdo -> rótulo e estilo do botão
-function buttonForType(tipoRaw, isPremium) {
-  const tipo = String(tipoRaw || "").toLowerCase();
-  if (tipo.includes("podteme")) return { label: "🎧 Ouvir episódio", kind: "primary" };
-  if (tipo.includes("preparatório teme") || tipo.includes("preparatorio teme")) return { label: "▶️ Assistir aula", kind: "accent" };
-  if (tipo.includes("instagram")) return { label: "📱 Ver post", kind: "primary" };
-  if (tipo.includes("blog")) return { label: "📰 Ler artigo", kind: "primary" };
-  if (tipo.includes("curso")) return { label: isPremium ? "💎 Conhecer o curso" : "▶️ Acessar curso", kind: isPremium ? "premium" : "accent" };
-  return { label: "🔗 Acessar conteúdo", kind: isPremium ? "premium" : "primary" };
-}
-
-// +++ LAYOUT CORRIGIDO: HTML compacto e limpo
-function btnStyle(kind) {
-  const base = "display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:500;font-size:13px;border:1px solid;cursor:pointer;";
-  if (kind === "accent") return base + "background:rgba(56,189,248,0.08);border-color:rgba(56,189,248,0.25);color:#38bdf8;";
-  if (kind === "premium") return base + "background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:#f59e0b;";
-  return base + "background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);color:#22c55e;";
-}
-
-// +++ LAYOUT CORRIGIDO: renderiza lista de itens com HTML mínimo
-function renderDictItemsList(items, isPremiumSection) {
-  if (!items.length) return "";
-  
-  const itemsHtml = items.map(it => {
-    const titulo = escapeHtml(it.titulo || "");
-    const autor = it.autor ? ` <span style="color:#94a3b8">— ${escapeHtml(it.autor)}</span>` : "";
-    const tipo = it.tipoConteudo || it.tipo_conteudo || "";
-    const { label, kind } = buttonForType(tipo, !!it.pago);
-    const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank"` : "";
-    const btn = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
-    
-    // Adiciona badges para conteúdo premium
-    const badges = isPremiumSection ? 
-      `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Carga horária: 12h</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Aulas on-demand</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Certificado</span></div>` : "";
-    
-    return `<div style="padding:10px;border:1px solid #1f2937;border-radius:8px;background:rgba(255,255,255,0.015);margin-bottom:8px"><div><strong>${titulo}</strong>${autor}</div>${btn}${badges}</div>`;
-  }).join("");
-  
-  const color = isPremiumSection ? "#f59e0b" : "#22c55e";
-  const label = isPremiumSection ? "Conteúdo premium (opcional)" : "Conteúdo complementar";
-  
-  return `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${label}</span><div style="margin-top:10px">${itemsHtml}</div></section>`;
-}
-
-// +++ LAYOUT CORRIGIDO: HTML final ultra compacto
-function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
-  // Header conciso com cores ajustadas para fundo verde
-  const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600;color:#1a1a1a">Encontrei a informação que responde à sua dúvida 👇</h1></header>`;
-
-  // Livro - seção principal
-  const bookSection = `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>Livro (fonte principal)</span><div style="position:relative;padding:12px 14px;border-left:3px solid #38bdf8;background:rgba(56,189,248,0.06);border-radius:6px;line-height:1.5;margin-top:10px"><div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div><small style="display:block;color:#94a3b8;margin-top:6px;font-size:11px">Trechos do livro-base do curso.</small></div></section>`;
-
-  // Separar e renderizar itens
-  const freeItems = (dictItems || []).filter(x => !x.pago);
-  const premiumItems = (dictItems || []).filter(x => x.pago);
-  
-  let content = header + bookSection;
-  if (freeItems.length) content += renderDictItemsList(freeItems, false);
-  if (premiumItems.length) content += renderDictItemsList(premiumItems, true);
-
-  return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${content}</div>`;
-}
-
-// Adicionado: recomendação a partir do dicionário (retorna apenas os itens selecionados)
-async function recommendFromDictionary(req, question) {
-  try {
-    const baseUrl = buildBaseUrl(req);
-    const res = await fetch(`${baseUrl}/api/dict`);
-    if (!res.ok) throw new Error(`GET /api/dict falhou: ${res.status}`);
-    const dictItems = await res.json();
-    if (!Array.isArray(dictItems) || dictItems.length === 0) return { raw: [] };
-
-    logSection("Dicionário - total carregado");
-    logObj("count", dictItems.length);
-
-    // pré-filtro lexical
-    const candidates = pickTopDictCandidates(dictItems, question, DICT_MAX_CANDIDATES);
-    logSection("Dicionário - candidatos enviados ao modelo");
-    logObj("candidates_count", candidates.length);
-
-    // payload enxuto para o modelo
-    const slim = candidates.map(it => ({
-      id: it.id,
-      titulo: it.titulo,
-      autor: it.autor || "",
-      tipo: it.tipoConteudo || it.tipo_conteudo || "",
-      tags: Array.isArray(it.tags) ? it.tags : [],
-      link: it.link || "",
-      pago: !!it.pago
-    }));
-
-    const system = `
-Você seleciona itens de um dicionário relevantes para a pergunta do usuário.
-Critérios:
-- Escolha no máximo ${DICT_MAX_RECOMMEND} itens bem relacionados ao tema da pergunta.
-- Dê preferência a correspondências no título/tipo/tags.
-- Se nada for claramente relevante, retorne lista vazia.
-Responda EXCLUSIVAMENTE em JSON:
-{"recommendedIds": ["id1","id2",...]}
-`.trim();
-
-    const user = `
-Pergunta: """${question}"""
-
-Itens (JSON):
-${JSON.stringify(slim, null, 2)}
-`.trim();
-
-    const chatReq = {
-      model: CHAT_MODEL,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ],
-      temperature: 0,
-      top_p: 1,
-      max_tokens: 200,
-      seed: seedFromString(question + "|dict")
-    };
-    logOpenAIRequest("chat.completions.create [dict]", chatReq);
-    const t0 = Date.now();
-    const resp = await openai.chat.completions.create(chatReq);
-    const ms = Date.now() - t0;
-    logOpenAIResponse("chat.completions.create [dict]", resp, { duration_ms: ms });
-
-    const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
-    let ids = [];
-    try {
-      const m = raw.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(m ? m[0] : raw);
-      if (Array.isArray(parsed.recommendedIds)) ids = parsed.recommendedIds.slice(0, DICT_MAX_RECOMMEND);
-    } catch {
-      ids = [];
-    }
-
-    const selected = ids
-      .map(id => candidates.find(c => c.id === id))
-      .filter(Boolean)
-      .slice(0, DICT_MAX_RECOMMEND);
-
-    const finalSel = selected.length ? selected : candidates.slice(0, Math.min(3, candidates.length));
-
-    logSection("Dicionário - selecionados");
-    logObj("ids", finalSel.map(x => x.id));
-
-    return { raw: finalSel };
-  } catch (e) {
-    logSection("Dicionário - erro");
-    logObj("error", String(e));
-    return { raw: [] };
-  }
-}
-
-// Para ambientes Next.js / Vercel: aumentar limite do body para áudio base64
-export const config = {
-  api: { bodyParser: { sizeLimit: "25mb" } }
-};
-
-// Adicionado: transcrição de áudio base64 com gpt-4o-mini-transcribe
-async function transcribeBase64AudioToText(audioStr, mime = "audio/webm") {
-  try {
-    logSection("Transcrição de áudio");
-    const clean = String(audioStr || "").replace(/^data:.*;base64,/, "");
-    logObj("audio_base64_len", clean.length);
-    const buf = Buffer.from(clean, "base64");
-    logObj("audio_bytes", buf.length);
-    const ext = mime.includes("mpeg") ? "mp3"
-      : mime.includes("wav") ? "wav"
-      : mime.includes("ogg") ? "ogg"
-      : mime.includes("m4a") ? "m4a"
-      : "webm";
-    const filename = `audio.${ext}`;
-    const file = await toFile(buf, filename, { type: mime });
-    const t0 = Date.now();
-    const resp = await openai.audio.transcriptions.create({
-      model: "gpt-4o-mini-transcribe",
-      file,
-      language: "pt"
-    });
-    const ms = Date.now() - t0;
-    logObj("transcription_ms", ms);
-    const text = (resp && (resp.text || resp.transcript || resp?.results?.[0]?.transcript)) || "";
-    logObj("transcription_preview", truncate(text, 200));
-    return text.trim();
-  } catch (e) {
-    logSection("Transcrição de áudio - erro");
-    logObj("error", String(e));
-    return "";
-  }
-}
-
 // ---------- Função principal ----------
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
@@ -450,13 +199,7 @@ export default async function handler(req, res) {
   const getLogs = () => (als.getStore()?.logs || []);
 
   try {
-    // Novo: aceitar pergunta por voz (base64/data URL)
-    const { question: questionRaw, audio, audio_mime } = req.body || {};
-    let question = String(questionRaw || "").trim();
-    if (!question && audio) {
-      logSection("Entrada de áudio detectada");
-      question = await transcribeBase64AudioToText(audio, audio_mime || "audio/webm");
-    }
+    const { question } = req.body;
     if (!question || !question.trim())
       return res.status(400).json({ error: "Pergunta vazia", logs: getLogs() });
 
@@ -482,9 +225,7 @@ export default async function handler(req, res) {
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
 
     // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
-    const pagesFromSummary = (typeof searchSummary === "function")
-      ? searchSummary(sumario, question)
-      : [];
+    const pagesFromSummary = searchSummary(sumario, question);
     if (als.getStore()?.enabled) {
       logSection("Páginas do sumário");
       logObj("pagesFromSummary", pagesFromSummary);
@@ -564,12 +305,7 @@ export default async function handler(req, res) {
     });
 
     if (!ranked.length) {
-      return res.json({
-        answer: "Não encontrei conteúdo no livro.",
-        used_pages: [],
-        question_used: question,
-        logs: getLogs()
-      });
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
     }
 
     if (als.getStore()?.enabled && ranked.length) {
@@ -590,12 +326,7 @@ export default async function handler(req, res) {
     const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
     const nonEmptyPages = selectedPages.filter(p => (pageMap.get(p) || "").trim());
     if (!nonEmptyPages.length) {
-      return res.json({
-        answer: "Não encontrei conteúdo no livro.",
-        used_pages: [],
-        question_used: question,
-        logs: getLogs()
-      });
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
     }
     if (als.getStore()?.enabled) {
       logSection("Páginas selecionadas para contexto");
@@ -670,22 +401,9 @@ Instruções de resposta:
       logObj("payload", { answer, used_pages: nonEmptyPages });
     }
 
-    // +++ Novo: etapa de recomendação do dicionário e concatenação da resposta +++
-    const dictRec = await recommendFromDictionary(req, question);
-
-    // Ajuste: detectar páginas realmente citadas na resposta para montar o template (se necessário futuramente)
-    const notFound = answer === "Não encontrei conteúdo no livro.";
-    const citedPages = extractCitedPages(answer);
-
-    // Novo: renderização no template (ou similar)
-    const finalAnswer = notFound
-      ? answer
-      : renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
-
     return res.status(200).json({
-      answer: finalAnswer,
+      answer,
       used_pages: nonEmptyPages,
-      question_used: question,
       logs: getLogs()
     });
 
