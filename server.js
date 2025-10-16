@@ -22,8 +22,8 @@ import OpenAI from "openai";
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(process.cwd(), "data");
 const BOOK_PATH = path.join(DATA_DIR, "abramede_texto.json");
-const EMB_PATH = path.join(DATA_DIR, "abramede_embeddings.json");
-// Adicionado: caminho do dicionário
+const EMB_PATH = path.join(DATA_DIR, "abramede_embeddings.json"); // opcional
+// Adicionado: arquivo do dicionário
 const DICT_PATH = path.join(DATA_DIR, "dictionary.json");
 const TOP_K = 6; // quantas páginas pegar por busca
 const EMB_MODEL = "text-embedding-3-small";
@@ -113,7 +113,7 @@ async function semanticSearch(queryEmbedding, pageEmbeddings, pages, topK = TOP_
   return top.map(t => ({ pagina: t.pagina, texto: pageMap.get(t.pagina) || "", score: t.score }));
 }
 
-// Adicionado: utilitários para o dicionário
+// Adicionado: utilitários para dicionário
 async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
 }
@@ -121,7 +121,7 @@ async function loadDictionary() {
   try {
     const raw = await fs.readFile(DICT_PATH, "utf8");
     const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) throw new Error("Formato inválido do dicionário");
+    if (!Array.isArray(arr)) throw new Error("Formato inválido");
     return arr;
   } catch {
     return [];
@@ -138,8 +138,7 @@ function validateEntry(input) {
   const titulo = String(input.titulo || "").trim();
   if (!titulo) return { ok: false, error: "titulo é obrigatório" };
   const autor = String(input.autor || "").trim();
-  const tipoConteudo =
-    String(input.tipoConteudo || input["tipo de conteudo"] || input.tipo || "").trim();
+  const tipoConteudo = String(input.tipoConteudo || input["tipo de conteudo"] || "").trim();
   let pagoRaw = input.pago;
   if (typeof pagoRaw === "string") {
     const l = pagoRaw.toLowerCase();
@@ -156,7 +155,7 @@ function validateEntry(input) {
   return { ok: true, value: { titulo, autor, tipoConteudo, pago, link, tags } };
 }
 
-// Adicionado: Endpoints CRUD do dicionário
+// Adicionado: endpoints CRUD do dicionário
 app.get("/api/dict", async (req, res) => {
   try {
     const items = await loadDictionary();
@@ -219,6 +218,11 @@ app.delete("/api/dict/:id", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
+});
+
+// Adicionado: fallback JSON para /api (evita HTML em erros)
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: `Rota não encontrada: ${req.method} ${req.originalUrl}` });
 });
 
 // endpoint principal do chat
