@@ -16,6 +16,10 @@ const CHAT_MODEL = "gpt-4o-mini";
 const TOP_K = 6;
 const MAX_CONTEXT_TOKENS = 3000;
 
+// +++ Novo: limites para recomendação do dicionário +++
+const DICT_MAX_CANDIDATES = 20;   // candidatos enviados ao modelo
+const DICT_MAX_RECOMMEND = 5;     // máximo de recomendações finais
+
 // ==== Logging helpers (added) ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
 const TRUNC_LIMIT = 800;
@@ -116,75 +120,141 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
-// Índice de sumário com acrônimos e sinônimos
-function buildSummaryIndex(sumario) {
-  const index = new Map();
-  const addKey = (key, pages) => {
-    const k = normalizeStr(key).trim();
-    if (!k) return;
-    const set = index.get(k) || new Set();
-    (pages || []).forEach(p => set.add(p));
-    index.set(k, set);
-  };
-
-  // Indexa tópicos e subcapítulos + acrônimos
-  for (const top of sumario || []) {
-    const topPages = top?.paginas || [];
-    if (top?.topico) addKey(top.topico, topPages);
-
-    for (const st of top?.subtopicos || []) {
-      const stPages = (st?.paginas && st.paginas.length ? st.paginas : topPages);
-      if (st?.titulo) {
-        addKey(st.titulo, stPages);
-        const tokens = normalizeStr(st.titulo).split(/\W+/).filter(Boolean);
-        if (tokens.length >= 2) {
-          const acronym = tokens.map(w => w[0]).join("");
-          addKey(acronym, stPages); // ex: "Ressuscitação cardiopulmonar" -> "rcp"
-        }
-      }
-    }
-  }
-
-  // Heurísticas leves: sinônimos comuns mapeados às páginas corretas via sumário
-  const findPagesBySubtopicTitle = (needleNorm) => {
-    for (const top of sumario || []) {
-      for (const st of top?.subtopicos || []) {
-        if (normalizeStr(st?.titulo || "") === needleNorm) {
-          return st?.paginas || [];
-        }
-      }
-    }
-    return [];
-  };
-
-  // RCP
-  const rcpPages = findPagesBySubtopicTitle("ressuscitacao cardiopulmonar");
-  if (rcpPages.length) {
-    [
-      "massagem cardiaca",
-      "compressao toracica",
-      "compressoes toracicas",
-      "cpr",
-      "parada cardiorrespiratoria",
-      "ressuscitacao cardiopulmonar",
-      "rcp"
-    ].forEach(k => addKey(k, rcpPages));
-  }
-
-  return index;
+// +++ Novo: helpers para recomendação do dicionário +++
+function buildBaseUrl(req) {
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers.host || "localhost";
+  return `${proto}://${host}`;
 }
 
-// Busca no sumário (agora usando índice com acrônimos/sinônimos)
-function searchSummary(sumario, query) {
-  const idx = buildSummaryIndex(sumario);
-  const nq = normalizeStr(query);
-  const hits = new Set();
-  for (const [key, pages] of idx.entries()) {
-    if (key && nq.includes(key)) {
-      pages.forEach(p => hits.add(p));
-    }
+function scoreDictItem(item, qTokens) {
+  const parts = [
+    item.titulo || "",
+    item.autor || "",
+    item.tipoConteudo || item.tipo_conteudo || "",
+    Array.isArray(item.tags) ? item.tags.join(" ") : ""
+  ];
+  const text = normalizeStr(parts.join(" | "));
+  let score = 0;
+  for (const t of qTokens) {
+    // prioriza match de tokens do título e tags
+    const inTitulo = countOccurrences(normalizeStr(item.titulo || ""), t);
+    const inTags = countOccurrences(normalizeStr((item.tags || []).join(" ")), t);
+    const inRest = countOccurrences(text, t);
+    score += inTitulo * 3 + inTags * 2 + Math.max(inRest, 0);
   }
-  return Array.from(hits).sort((a, b) => a - b);
+  return score;
+}
+
+function pickTopDictCandidates(items, question, limit = DICT_MAX_CANDIDATES) {
+  const qNorm = normalizeStr(question);
+  const qTokens = Array.from(new Set(qNorm.split(/\W+/).filter(w => w && w.length > 2)));
+  const withScores = (items || []).map(it => ({ it, s: scoreDictItem(it, qTokens) }));
+  withScores.sort((a, b) => b.s - a.s);
+  return withScores.slice(0, limit).map(x => x.it);
+}
+
+function formatDictRecommendations(selected) {
+  if (!selected.length) return "";
+  const lines = selected.map(it => {
+    const tipo = it.tipoConteudo || it.tipo_conteudo || "";
+    const autor = it.autor ? ` — ${it.autor}` : "";
+    const tags = (it.tags && it.tags.length) ? ` — Tags: ${it.tags.join(", ")}` : "";
+    const link = it.link ? ` — Link: ${it.link}` : "";
+    return `• ${it.titulo}${tipo ? ` (${tipo})` : ""}${autor}${tags}${link}`;
+  });
+  return ["Recomendações do dicionário:", ...lines].join("\n");
+}
+
+async function recommendFromDictionary(req, question) {
+  try {
+    const baseUrl = buildBaseUrl(req);
+    const res = await fetch(`${baseUrl}/api/dict`);
+    if (!res.ok) throw new Error(`GET /api/dict falhou: ${res.status}`);
+    const dictItems = await res.json();
+    if (!Array.isArray(dictItems) || dictItems.length === 0) return { lines: [], raw: [] };
+
+    logSection("Dicionário - total carregado");
+    logObj("count", dictItems.length);
+
+    // pré-filtro
+    const candidates = pickTopDictCandidates(dictItems, question, DICT_MAX_CANDIDATES);
+    logSection("Dicionário - candidatos enviados ao modelo");
+    logObj("candidates_count", candidates.length);
+
+    // Montar payload enxuto para o modelo (evitar campos grandes)
+    const slim = candidates.map(it => ({
+      id: it.id,
+      titulo: it.titulo,
+      autor: it.autor || "",
+      tipo: it.tipoConteudo || it.tipo_conteudo || "",
+      tags: Array.isArray(it.tags) ? it.tags : [],
+      link: it.link || ""
+    }));
+
+    const system = `
+Você seleciona itens de um dicionário relevantes para a pergunta do usuário.
+Critérios:
+- Escolha no máximo ${DICT_MAX_RECOMMEND} itens bem relacionados ao tema da pergunta.
+- Prefira coincidências no título/tags/tipo.
+- Se nada for claramente relevante, retorne lista vazia.
+Responda EXCLUSIVAMENTE em JSON no formato:
+{"recommendedIds": ["id1","id2",...]}
+`.trim();
+
+    const user = `
+Pergunta: """${question}"""
+
+Itens (JSON):
+${JSON.stringify(slim, null, 2)}
+`.trim();
+
+    const chatReq = {
+      model: CHAT_MODEL,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ],
+      temperature: 0,
+      top_p: 1,
+      max_tokens: 200,
+      seed: seedFromString(question + "|dict")
+    };
+    logOpenAIRequest("chat.completions.create [dict]", chatReq);
+    const t0 = Date.now();
+    const resp = await openai.chat.completions.create(chatReq);
+    const ms = Date.now() - t0;
+    logOpenAIResponse("chat.completions.create [dict]", resp, { duration_ms: ms });
+
+    const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
+    let ids = [];
+    try {
+      const m = raw.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(m ? m[0] : raw);
+      if (Array.isArray(parsed.recommendedIds)) ids = parsed.recommendedIds.slice(0, DICT_MAX_RECOMMEND);
+    } catch {
+      // fallback: nenhuma seleção estruturada
+      ids = [];
+    }
+
+    const selected = ids
+      .map(id => candidates.find(c => c.id === id))
+      .filter(Boolean)
+      .slice(0, DICT_MAX_RECOMMEND);
+
+    // fallback se modelo não retornou nada: pega top 3 do pré-filtro
+    const finalSel = selected.length ? selected : candidates.slice(0, Math.min(3, candidates.length));
+
+    logSection("Dicionário - selecionados");
+    logObj("ids", finalSel.map(x => x.id));
+
+    const text = formatDictRecommendations(finalSel);
+    return { text, raw: finalSel };
+  } catch (e) {
+    logSection("Dicionário - erro");
+    logObj("error", String(e));
+    return { text: "", raw: [] };
+  }
 }
 
 // ---------- Função principal ----------
@@ -399,8 +469,14 @@ Instruções de resposta:
       logObj("payload", { answer, used_pages: nonEmptyPages });
     }
 
+    // +++ Novo: etapa de recomendação do dicionário e concatenação da resposta +++
+    const dictRec = await recommendFromDictionary(req, question);
+    const finalAnswer = dictRec.text
+      ? `${answer}\n\n${dictRec.text}`
+      : answer;
+
     return res.status(200).json({
-      answer,
+      answer: finalAnswer,
       used_pages: nonEmptyPages,
       logs: getLogs()
     });
