@@ -106,6 +106,10 @@
       transition: all 0.2s;
     }
     
+    select[multiple] {
+      height: 120px;
+    }
+    
     input[type="text"]:focus,
     input[type="url"]:focus,
     select:focus {
@@ -335,8 +339,13 @@
       </div>
       
       <label>
-        <span class="label-text">Tags (separadas por vírgula)</span>
-        <input type="text" id="tags" placeholder="ex: cardiologia, emergência, UTI..." />
+        <span class="label-text">Tags (categorias do sumário)</span>
+        <select id="tags" multiple>
+          <!-- Preenchido dinamicamente via JavaScript -->
+        </select>
+        <small style="color: #9ca3af; margin-top: 4px; display: block;">
+          Segure Ctrl (Cmd no Mac) para selecionar múltiplas categorias
+        </small>
       </label>
       
       <div class="form-actions">
@@ -370,6 +379,40 @@
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+    // Carregar categorias do sumário
+    let categorias = [];
+    
+    async function loadCategorias() {
+      try {
+        const res = await fetch("/data/sumario_final.json");
+        const sumario = await res.json();
+        
+        // Extrair todas as categorias únicas
+        const categoriasSet = new Set();
+        sumario.forEach(secao => {
+          (secao.categorias || []).forEach(cat => {
+            if (cat.categoria) {
+              categoriasSet.add(cat.categoria);
+            }
+          });
+        });
+        
+        categorias = Array.from(categoriasSet).sort();
+        
+        // Preencher o select
+        const select = $("#tags");
+        select.innerHTML = "";
+        categorias.forEach(cat => {
+          const option = document.createElement("option");
+          option.value = cat;
+          option.textContent = cat;
+          select.appendChild(option);
+        });
+      } catch (e) {
+        console.error("Erro ao carregar categorias:", e);
+      }
+    }
+
     function setMsg(text, isError=false) {
       const el = $("#msg");
       el.textContent = text || "";
@@ -383,8 +426,9 @@
       const pagoVal = $$("input[name='pago']:checked")[0]?.value || "nao";
       const pago = pagoVal === "sim";
       const link = $("#link").value.trim();
-      const tagsStr = $("#tags").value.trim();
-      const tags = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(Boolean) : [];
+      // Pegar valores selecionados do select múltiplo
+      const tagsSelect = $("#tags");
+      const tags = Array.from(tagsSelect.selectedOptions).map(opt => opt.value);
       return { titulo, autor, tipoConteudo, pago, link, tags };
     }
 
@@ -395,7 +439,13 @@
       const pagoVal = d.pago ? "sim" : "nao";
       $$("input[name='pago']").forEach(r => r.checked = (r.value === pagoVal));
       $("#link").value = d.link || "";
-      $("#tags").value = Array.isArray(d.tags) ? d.tags.join(", ") : "";
+      
+      // Selecionar as tags corretas no select múltiplo
+      const tagsSelect = $("#tags");
+      const tagsArray = Array.isArray(d.tags) ? d.tags : [];
+      Array.from(tagsSelect.options).forEach(opt => {
+        opt.selected = tagsArray.includes(opt.value);
+      });
     }
 
     async function loadList() {
@@ -503,6 +553,8 @@
     $("#dictForm").addEventListener("submit", onSubmit);
     $("#resetBtn").addEventListener("click", () => { resetForm(); setMsg("🔄 Formulário limpo."); });
 
+    // Inicializar
+    loadCategorias();
     loadList();
   </script>
 </body>
