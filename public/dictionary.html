@@ -151,7 +151,7 @@
     }
 
     async function onEdit(id) {
-      const res = await fetch(`/api/dict/${id}`);
+      const res = await fetch(`/api/dict?id=${id}`);
       if (!res.ok) {
         setMsg("Erro ao carregar item para edição.", true);
         return;
@@ -165,7 +165,7 @@
 
     async function onDelete(id) {
       if (!confirm("Excluir este item?")) return;
-      const res = await fetch(`/api/dict/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/dict?id=${id}`, { method: "DELETE" });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
         setMsg("Erro ao excluir: " + (e.error || res.statusText), true);
@@ -182,7 +182,7 @@
       const id = $("#entryId").value;
       const payload = formToPayload();
       try {
-        const url = id ? `/api/dict/${id}` : "/api/dict";
+        const url = id ? `/api/dict?id=${id}` : "/api/dict";
         const method = id ? "PUT" : "POST";
         const res = await fetch(url, {
           method,
