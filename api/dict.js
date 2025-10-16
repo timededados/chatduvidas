@@ -6,10 +6,15 @@ const DATA_DIR = path.join(process.cwd(), "data");
 const DICT_PATH = path.join(DATA_DIR, "dictionary.json");
 const BUCKET_NAME = "dictionary-images"; // bucket público para imagens
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+// Use a service role key on the server to bypass RLS; fallback to anon if missing.
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_ANON_KEY;
+if (!process.env.SUPABASE_URL) {
+  console.warn("SUPABASE_URL não definido");
+}
+if (!supabaseKey) {
+  console.warn("Nenhuma SUPABASE key definida (SERVICE_ROLE/ANON)");
+}
+const supabase = createClient(process.env.SUPABASE_URL, supabaseKey);
 
 async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -262,6 +267,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Método não permitido" });
   } catch (e) {
     console.error("Erro em /api/dict:", e);
-    return res.status(500).json({ error: String(e.message || e) });
+    const msg = String(e?.message || e);
+    if (/row-level security/i.test(msg) || /violates row-level security/i.test(msg)) {
+      return res.status(403).json({ error: "RLS: verifique as policies ou configure SUPABASE_SERVICE_ROLE no servidor." });
+    }
+    return res.status(500).json({ error: msg });
   }
 }
