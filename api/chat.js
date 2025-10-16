@@ -618,6 +618,7 @@ export default async function handler(req, res) {
     const systemInstruction = `
 Você responde exclusivamente com base nos textos abaixo (até 2 páginas).
 Regras:
+- Sempre considere que a pergunta se refere a um adulto caso não seja solicitada informações especificas de pediatria e RN
 - Não adicione informações externas.
 - Use somente frases originais dos textos fornecidos.
 - Avalie cada página separadamente.
