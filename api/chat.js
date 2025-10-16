@@ -3,7 +3,6 @@ import OpenAI from "openai";
 import fs from "fs/promises";
 import path from "path";
 import { AsyncLocalStorage } from "async_hooks";
-import { createClient } from "@supabase/supabase-js"; // novo
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -11,8 +10,6 @@ const DATA_DIR = path.join(process.cwd(), "data");
 const BOOK_PATH = path.join(DATA_DIR, "abramede_texto.json");
 const EMB_PATH = path.join(DATA_DIR, "abramede_embeddings.json");
 const SUM_PATH = path.join(DATA_DIR, "sumario_final.json");
-// Novo: fallback local do dicionário (quando não há Supabase)
-const DICT_PATH = path.join(DATA_DIR, "dictionary.json");
 
 const EMB_MODEL = "text-embedding-3-small";
 const CHAT_MODEL = "gpt-4o-mini";
@@ -119,130 +116,6 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
-// ==== Dicionário: carregar, ranquear e formatar (novo) ====
-// Supabase (se disponível)
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE ||
-  process.env.SUPABASE_ANON_KEY;
-const supabase =
-  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-
-async function loadDictionaryFromSupabase() {
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase
-      .from("dictionary")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    const items = (data || []).map(item => ({
-      id: item.id,
-      titulo: item.titulo,
-      autor: item.autor,
-      tipoConteudo: item.tipo_conteudo,
-      pago: item.pago,
-      link: item.link,
-      tags: item.tags || [],
-      imagemUrl: item.imagem_url || null,
-      createdAt: item.created_at,
-      updatedAt: item.updated_at
-    }));
-    return items;
-  } catch (e) {
-    logLine("Supabase dictionary load error:", String(e?.message || e));
-    return null;
-  }
-}
-
-async function loadDictionaryFromFile() {
-  try {
-    const raw = await fs.readFile(DICT_PATH, "utf8");
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    // normaliza chaves do arquivo local
-    return arr.map(x => ({
-      id: x.id,
-      titulo: x.titulo,
-      autor: x.autor,
-      tipoConteudo: x.tipoConteudo || x.tipo_conteudo,
-      pago: !!x.pago,
-      link: x.link,
-      tags: Array.isArray(x.tags) ? x.tags : [],
-      imagemUrl: x.imagemUrl || x.imagem_url || null,
-      createdAt: x.createdAt || x.created_at,
-      updatedAt: x.updatedAt || x.updated_at
-    }));
-  } catch {
-    return [];
-  }
-}
-
-async function loadDictionaryEntries() {
-  // tenta Supabase primeiro; se falhar, usa arquivo local
-  const sb = await loadDictionaryFromSupabase();
-  if (sb && Array.isArray(sb)) return sb;
-  const file = await loadDictionaryFromFile();
-  return file;
-}
-
-function rankDictItems(question, items, maxItems = 3) {
-  const qNorm = normalizeStr(question);
-  const qTokens = Array.from(new Set(qNorm.split(/\W+/).filter(t => t && t.length > 2)));
-  const scored = [];
-
-  for (const it of items || []) {
-    const title = normalizeStr(it.titulo || "");
-    const author = normalizeStr(it.autor || "");
-    const tipo = normalizeStr(it.tipoConteudo || "");
-    const tagsNorm = (it.tags || []).map(t => normalizeStr(String(t || "")));
-    const blob = [title, author, tipo, tagsNorm.join(" ")].join(" ").trim();
-
-    let score = 0;
-
-    // peso por tokens no título/tipo/autor
-    for (const t of qTokens) {
-      if (countOccurrences(title, t)) score += 2; // título mais relevante
-      if (countOccurrences(tipo, t)) score += 1.2;
-      if (countOccurrences(author, t)) score += 0.8;
-      if (countOccurrences(blob, t)) score += 0.3;
-    }
-
-    // peso por tags (tags são categorias do sumário)
-    for (const tg of tagsNorm) {
-      if (!tg) continue;
-      if (qNorm.includes(tg)) score += 3.0;
-      // correspondência por token
-      for (const t of qTokens) {
-        if (tg === t) score += 1.8;
-      }
-    }
-
-    // pequeno bônus se tiver link (útil para o usuário)
-    if (it.link) score += 0.2;
-
-    if (score > 0) {
-      scored.push({ item: it, score });
-    }
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, maxItems);
-}
-
-function formatDictItemsForPrompt(scored) {
-  if (!scored?.length) return "";
-  const lines = scored.map(({ item }) => {
-    const tagStr = (item.tags || []).join(", ");
-    const pagoStr = item.pago ? "Sim" : "Não";
-    const linkStr = item.link ? item.link : "—";
-    return `- Título: ${item.titulo} | Tipo: ${item.tipoConteudo || "—"} | Pago: ${pagoStr} | Autor: ${item.autor || "—"} | Tags: ${tagStr || "—"} | Link: ${linkStr}`;
-  });
-  return lines.join("\n");
-}
-// ==== fim bloco dicionário ====
-
 // Índice de sumário com acrônimos e sinônimos
 function buildSummaryIndex(sumario) {
   const index = new Map();
@@ -318,6 +191,8 @@ function searchSummary(sumario, query) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
+  // Sempre habilitar logs para expor toda a interação
+  // const forceDebug = /^(1|true|yes|on)$/i.test(String(req.query?.debug ?? req.body?.debug ?? ""));
   als.enterWith({ logs: [], enabled: true });
   const getLogs = () => (als.getStore()?.logs || []);
 
@@ -370,21 +245,6 @@ export default async function handler(req, res) {
     const qTokens = Array.from(
       new Set(qNorm.split(/\W+/).filter(t => t && t.length > 2))
     );
-
-    // ==== NOVO: carregar e ranquear itens do dicionário pela pergunta ====
-    const dictAll = await loadDictionaryEntries();
-    if (als.getStore()?.enabled) {
-      logSection("Dicionário - total de itens carregados");
-      logObj("count", dictAll.length);
-    }
-    const dictTop = rankDictItems(question, dictAll, 3);
-    const dictUsed = dictTop.map(d => ({ id: d.item.id, score: Number(d.score.toFixed(3)) }));
-    if (als.getStore()?.enabled) {
-      logSection("Dicionário - itens relevantes");
-      logObj("dictUsed", dictUsed);
-    }
-    const dictContextText = formatDictItemsForPrompt(dictTop);
-    // ================================================================
 
     // 4.1️⃣ Define conjunto de candidatos:
     // - Se achou páginas no sumário, restringe a elas e vizinhas (±2) para evitar desvio para seções distantes.
@@ -443,17 +303,7 @@ export default async function handler(req, res) {
     });
 
     if (!ranked.length) {
-      // Sem páginas candidatas; se houver sugestões do dicionário, retorne-as
-      if (dictTop.length) {
-        const suggestions = dictContextText ? `\n\nSugestões do dicionário:\n${dictContextText}` : "";
-        return res.json({
-          answer: "Não encontrei conteúdo no livro." + suggestions,
-          used_pages: [],
-          used_dict: dictUsed,
-          logs: getLogs()
-        });
-      }
-      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], used_dict: [], logs: getLogs() });
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
     }
 
     if (als.getStore()?.enabled && ranked.length) {
@@ -474,17 +324,7 @@ export default async function handler(req, res) {
     const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
     const nonEmptyPages = selectedPages.filter(p => (pageMap.get(p) || "").trim());
     if (!nonEmptyPages.length) {
-      // Sem conteúdo de livro; mas temos dicionário?
-      if (dictTop.length) {
-        const suggestions = dictContextText ? `\n\nSugestões do dicionário:\n${dictContextText}` : "";
-        return res.json({
-          answer: "Não encontrei conteúdo no livro." + suggestions,
-          used_pages: [],
-          used_dict: dictUsed,
-          logs: getLogs()
-        });
-      }
-      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], used_dict: [], logs: getLogs() });
+      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
     }
     if (als.getStore()?.enabled) {
       logSection("Páginas selecionadas para contexto");
@@ -500,35 +340,33 @@ export default async function handler(req, res) {
       logObj("contextText_trunc", truncate(contextText, 1000));
     }
 
-    // 7️⃣ Prompt restritivo multi-página (ajustado para também incluir dicionário)
+    // 7️⃣ Prompt restritivo multi-página
     const systemInstruction = `
-Você responde exclusivamente com base nos conteúdos fornecidos abaixo.
-Fontes:
-1) Livro (1–2 páginas): use somente trechos literais entre aspas e cite sempre "Página X".
-2) Dicionário (itens opcionais): liste sugestões no final se houver, usando apenas as informações fornecidas (título, autor, tipo, pago, tags e link). Não confunda com o livro e não invente nada.
-
+Você responde exclusivamente com base nos textos abaixo (até 2 páginas).
 Regras:
 - Não adicione informações externas.
-- Avalie cada página do livro separadamente.
-- Se somente uma página contiver a resposta, cite apenas "Página X" e inclua pelo menos 1 trecho literal entre aspas dessa página.
-- Se as duas páginas tiverem partes relevantes, combine citando claramente ambas (ex: Página 10: "..." / Página 11: "...").
-- Se nenhuma página do livro contiver a resposta, diga exatamente: "Não encontrei conteúdo no livro." e, se houver, inclua em seguida as "Sugestões do dicionário".
+- Use somente frases originais dos textos fornecidos.
+- Avalie cada página separadamente.
+- Se somente uma página contiver a resposta, cite apenas "Página X" e use pelo menos 1 trecho literal entre aspas dessa página.
+- Se as duas páginas tiverem partes relevantes, combine a resposta citando claramente ambas (ex: Página 10: "..." / Página 11: "...").
+- Use sempre "Página X" ao citar.
+- Não invente página que não está no contexto.
+- Se nenhuma página contiver a resposta, responda exatamente: "Não encontrei conteúdo no livro."
 `.trim();
 
     const userPrompt = `
 Conteúdo do livro (1 ou 2 páginas):
 ${contextText}
 
-Itens do dicionário relevantes (se houver; para sugestões no final):
-${dictContextText || "(nenhum)"}
-
 Pergunta do usuário:
 """${question}"""
 
-Como responder:
-1. Responda apenas com base no CONTEÚDO DO LIVRO acima, citando "Página X" e trechos literais entre aspas.
-2. Após a resposta do livro, se houver "Itens do dicionário", inclua uma seção final intitulada "Sugestões do dicionário" listando até ${dictTop.length || 0} itens com título e link, e opcionalmente tipo/pago/tags. Não misture as fontes.
-3. Se o livro não responder à pergunta, escreva: "Não encontrei conteúdo no livro." e então mostre "Sugestões do dicionário" (se houver).
+Instruções de resposta:
+1. Indique apenas as páginas que realmente suportam a resposta.
+2. Use somente trechos literais entre aspas exatamente como aparecem.
+3. Se as duas páginas forem úteis, una-as citando ambas separadamente.
+4. Se só uma tiver informação útil, cite apenas essa.
+5. Caso nenhuma tenha a resposta: "Não encontrei conteúdo no livro."
 `.trim();
 
     // 8️⃣ Geração determinística
@@ -558,13 +396,12 @@ Como responder:
 
     if (als.getStore()?.enabled) {
       logSection("Resposta final");
-      logObj("payload", { answer, used_pages: nonEmptyPages, used_dict: dictUsed });
+      logObj("payload", { answer, used_pages: nonEmptyPages });
     }
 
     return res.status(200).json({
       answer,
       used_pages: nonEmptyPages,
-      used_dict: dictUsed,
       logs: getLogs()
     });
 
