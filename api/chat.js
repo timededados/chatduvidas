@@ -671,8 +671,8 @@ export default async function handler(req, res) {
 Você responde exclusivamente com base nos textos fornecidos (múltiplas páginas).
 Regras:
 - Sempre considere que a pergunta se refere a um adulto caso não seja solicitada informações especificas de pediatria e RN
-- Não adicione informações externas.
-- Use somente frases originais dos textos fornecidos.
+- NUNCA adicione informações externas.
+- Use somente frases originais dos textos fornecidos. NUNCA Complemente ou formate a informação encontrada
 - Avalie todas as páginas fornecidas.
 - Cite apenas as páginas que realmente contêm a informação usada na resposta.
 - Use "Página X" ao citar e inclua pelo menos 1 trecho literal entre aspas dessa página.
