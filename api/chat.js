@@ -585,7 +585,7 @@ export default async function handler(req, res) {
     // ====================== BOOST LEXICAL AJUSTADO ======================
 
     // fator de amplificação do peso lexical (1.0 = neutro, >1 aumenta peso das palavras da pergunta)
-    const LEXICAL_BOOST = 3.0;
+    const LEXICAL_BOOST = 5.0;
 
     // valor base do boost para páginas vindas do sumário
     const SUMMARY_BOOST_BASE = pagesFromSummary.length ? 0.5 : 0.08;
