@@ -5,76 +5,358 @@
   <title>Dicionário de Consulta</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, sans-serif; margin: 20px; }
-    form { display: grid; gap: 10px; max-width: 640px; margin-bottom: 24px; }
-    label { display: grid; gap: 6px; }
-    input[type="text"], input[type="url"], select { padding: 8px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
-    th { background: #f5f5f5; }
-    .actions button { margin-right: 6px; }
-    .muted { color: #666; font-size: 12px; }
+    :root {
+      --bg: #1e1e2f;
+      --fg: #f5f5f5;
+      --primary: #4f8cff;
+      --secondary: #2e2e42;
+      --border: #3a3a52;
+      --input-bg: #2b2b3f;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: "Inter", "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: var(--primary);
+      margin-bottom: 10px;
+      font-size: 2em;
+    }
+    
+    h2 {
+      color: var(--primary);
+      margin-top: 40px;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+    
+    .top-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 20px;
+    }
+    
+    .link-btn {
+      background: var(--primary);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 14px;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .link-btn:hover {
+      background: #3573f7;
+      transform: translateY(-1px);
+    }
+    
+    form {
+      background: var(--secondary);
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      margin-bottom: 30px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 16px;
+      font-weight: 500;
+      color: var(--fg);
+    }
+    
+    label span.label-text {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    
+    input[type="text"],
+    input[type="url"] {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--fg);
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    
+    input[type="text"]:focus,
+    input[type="url"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1);
+    }
+    
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    .radio-group {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      cursor: pointer;
+      font-weight: normal;
+    }
+    
+    input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+    
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    #saveBtn {
+      background: var(--success);
+      color: white;
+    }
+    
+    #saveBtn:hover {
+      background: #0ea672;
+      transform: translateY(-1px);
+    }
+    
+    #resetBtn {
+      background: var(--border);
+      color: var(--fg);
+    }
+    
+    #resetBtn:hover {
+      background: #4a4a62;
+    }
+    
+    .table-container {
+      background: var(--secondary);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    thead {
+      background: var(--input-bg);
+    }
+    
+    th {
+      padding: 16px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--primary);
+      border-bottom: 2px solid var(--border);
+    }
+    
+    td {
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    
+    tbody tr {
+      transition: background 0.2s;
+    }
+    
+    tbody tr:hover {
+      background: rgba(79, 140, 255, 0.05);
+    }
+    
+    .actions button {
+      padding: 6px 14px;
+      font-size: 13px;
+      margin-right: 6px;
+    }
+    
+    .actions button[data-act="edit"] {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .actions button[data-act="edit"]:hover {
+      background: #3573f7;
+    }
+    
+    .actions button[data-act="del"] {
+      background: var(--danger);
+      color: white;
+    }
+    
+    .actions button[data-act="del"]:hover {
+      background: #dc2626;
+    }
+    
+    .muted {
+      color: #9ca3af;
+      font-size: 14px;
+      margin-top: 8px;
+      min-height: 20px;
+    }
+    
+    .muted.error {
+      color: var(--danger);
+    }
+    
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    
+    a:hover {
+      text-decoration: underline;
+    }
+    
+    .tag {
+      display: inline-block;
+      background: rgba(79, 140, 255, 0.2);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
+      
+      table {
+        font-size: 14px;
+      }
+      
+      th, td {
+        padding: 10px 8px;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Dicionário de Consulta</h1>
+  <div class="container">
+    <h1>📚 Dicionário de Consulta</h1>
+    
+    <div class="top-actions">
+      <a class="link-btn" href="/">💬 Voltar ao Chat</a>
+    </div>
 
-  <form id="dictForm">
-    <input type="hidden" id="entryId" />
-    <label>
-      Título (obrigatório)
-      <input type="text" id="titulo" required />
-    </label>
-    <div class="row">
+    <form id="dictForm">
+      <input type="hidden" id="entryId" />
+      
       <label>
-        Autor
-        <input type="text" id="autor" />
+        <span class="label-text">Título (obrigatório)</span>
+        <input type="text" id="titulo" required placeholder="Digite o título..." />
       </label>
+      
+      <div class="row">
+        <label>
+          <span class="label-text">Autor</span>
+          <input type="text" id="autor" placeholder="Nome do autor..." />
+        </label>
+        <label>
+          <span class="label-text">Tipo de conteúdo</span>
+          <input type="text" id="tipoConteudo" placeholder="ex: artigo, vídeo, livro..." />
+        </label>
+      </div>
+      
+      <div class="row">
+        <label>
+          <span class="label-text">Pago?</span>
+          <div class="radio-group">
+            <label><input type="radio" name="pago" value="nao" checked /> Não</label>
+            <label><input type="radio" name="pago" value="sim" /> Sim</label>
+          </div>
+        </label>
+        <label>
+          <span class="label-text">Link</span>
+          <input type="url" id="link" placeholder="https://..." />
+        </label>
+      </div>
+      
       <label>
-        Tipo de conteúdo
-        <input type="text" id="tipoConteudo" placeholder="ex: artigo, vídeo, livro..." />
+        <span class="label-text">Tags (separadas por vírgula)</span>
+        <input type="text" id="tags" placeholder="ex: cardiologia, emergência, UTI..." />
       </label>
-    </div>
-    <div class="row">
-      <label>
-        Pago?
-        <span>
-          <label><input type="radio" name="pago" value="nao" checked /> Não</label>
-          <label><input type="radio" name="pago" value="sim" /> Sim</label>
-        </span>
-      </label>
-      <label>
-        Link
-        <input type="url" id="link" placeholder="https://..." />
-      </label>
-    </div>
-    <label>
-      Tags (separadas por vírgula)
-      <input type="text" id="tags" placeholder="ex: cardiologia, emergência" />
-    </label>
-    <div>
-      <button type="submit" id="saveBtn">Salvar</button>
-      <button type="button" id="resetBtn">Limpar</button>
-    </div>
-    <div id="msg" class="muted"></div>
-  </form>
+      
+      <div class="form-actions">
+        <button type="submit" id="saveBtn">💾 Salvar</button>
+        <button type="button" id="resetBtn">🔄 Limpar</button>
+      </div>
+      
+      <div id="msg" class="muted"></div>
+    </form>
 
-  <h2>Itens cadastrados</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Título</th>
-        <th>Autor</th>
-        <th>Tipo</th>
-        <th>Pago</th>
-        <th>Link</th>
-        <th>Tags</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody id="listBody"></tbody>
-  </table>
+    <h2>Itens cadastrados</h2>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Título</th>
+            <th>Autor</th>
+            <th>Tipo</th>
+            <th>Pago</th>
+            <th>Link</th>
+            <th>Tags</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="listBody"></tbody>
+      </table>
+    </div>
+  </div>
 
   <script>
     const $ = (sel) => document.querySelector(sel);
@@ -83,7 +365,7 @@
     function setMsg(text, isError=false) {
       const el = $("#msg");
       el.textContent = text || "";
-      el.style.color = isError ? "#b00020" : "#666";
+      el.className = isError ? "muted error" : "muted";
     }
 
     function formToPayload() {
@@ -117,18 +399,23 @@
     function renderList(items) {
       const body = $("#listBody");
       body.innerHTML = "";
+      if (!items.length) {
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:24px;">Nenhum item cadastrado ainda.</td></tr>';
+        return;
+      }
       items.forEach(item => {
         const tr = document.createElement("tr");
+        const tagsHtml = (item.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
         tr.innerHTML = `
-          <td>${escapeHtml(item.titulo)}</td>
-          <td>${escapeHtml(item.autor || "")}</td>
-          <td>${escapeHtml(item.tipoConteudo || "")}</td>
-          <td>${item.pago ? "Sim" : "Não"}</td>
-          <td>${item.link ? `<a href="${escapeAttr(item.link)}" target="_blank">abrir</a>` : ""}</td>
-          <td>${(item.tags || []).map(escapeHtml).join(", ")}</td>
+          <td><strong>${escapeHtml(item.titulo)}</strong></td>
+          <td>${escapeHtml(item.autor || "—")}</td>
+          <td>${escapeHtml(item.tipoConteudo || "—")}</td>
+          <td>${item.pago ? "✅ Sim" : "❌ Não"}</td>
+          <td>${item.link ? `<a href="${escapeAttr(item.link)}" target="_blank">🔗 Abrir</a>` : "—"}</td>
+          <td>${tagsHtml || "—"}</td>
           <td class="actions">
-            <button data-act="edit" data-id="${item.id}">Editar</button>
-            <button data-act="del" data-id="${item.id}">Excluir</button>
+            <button data-act="edit" data-id="${item.id}">✏️ Editar</button>
+            <button data-act="del" data-id="${item.id}">🗑️ Excluir</button>
           </td>
         `;
         body.appendChild(tr);
@@ -159,19 +446,20 @@
       const item = await res.json();
       $("#entryId").value = item.id;
       payloadToForm(item);
-      setMsg("Editando item.");
+      setMsg("✏️ Editando item...");
       $("#titulo").focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function onDelete(id) {
-      if (!confirm("Excluir este item?")) return;
+      if (!confirm("⚠️ Tem certeza que deseja excluir este item?")) return;
       const res = await fetch(`/api/dict?id=${id}`, { method: "DELETE" });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        setMsg("Erro ao excluir: " + (e.error || res.statusText), true);
+        setMsg("❌ Erro ao excluir: " + (e.error || res.statusText), true);
         return;
       }
-      setMsg("Item excluído.");
+      setMsg("✅ Item excluído com sucesso!");
       await loadList();
       resetForm();
     }
@@ -191,11 +479,11 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);
-        setMsg(id ? "Item atualizado." : "Item criado.");
+        setMsg(id ? "✅ Item atualizado com sucesso!" : "✅ Item criado com sucesso!");
         await loadList();
         resetForm();
       } catch (err) {
-        setMsg(String(err.message || err), true);
+        setMsg("❌ " + String(err.message || err), true);
       }
     }
 
@@ -205,7 +493,7 @@
     }
 
     $("#dictForm").addEventListener("submit", onSubmit);
-    $("#resetBtn").addEventListener("click", () => { resetForm(); setMsg("Formulário limpo."); });
+    $("#resetBtn").addEventListener("click", () => { resetForm(); setMsg("🔄 Formulário limpo."); });
 
     loadList();
   </script>
