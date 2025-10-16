@@ -583,10 +583,10 @@ Instruções de resposta:
     if (!notFound && citedPages.length > 0) {
       if (citedPages.length === 1) {
         // Singular: sem listar número(s)
-        headerLine = "<strong>A resposta para a iformação solicitada se encontra na página:</strong>";
+        headerLine = "<strong>A resposta para a informação solicitada se encontra na página:</strong>";
       } else {
         // Plural: listar as páginas
-        headerLine = `<strong>A resposta para a iformação solicitada se encontra nas páginas:</strong> ${citedPages.join(", ")}`;
+        headerLine = `<strong>A resposta para a informação solicitada se encontra nas páginas:</strong> ${citedPages.join(", ")}`;
       }
     }
 
