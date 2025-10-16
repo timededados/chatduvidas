@@ -520,8 +520,8 @@
         const chip = document.createElement("div");
         chip.className = "tag-chip";
         chip.innerHTML = `
-          ${tag}
-          <button type="button" data-tag="${tag}">×</button>
+          ${escapeHtml(tag)}
+          <button type="button" data-tag="${escapeAttr(tag)}">×</button>
         `;
         tagsInputWrapper.insertBefore(chip, tagsSearch);
       });
@@ -552,7 +552,7 @@
       }
 
       tagsDropdown.innerHTML = filtered.slice(0, 10).map(cat => `
-        <div class="tags-dropdown-item" data-tag="${cat}">${cat}</div>
+        <div class="tags-dropdown-item" data-tag="${escapeAttr(cat)}">${escapeHtml(cat)}</div>
       `).join("");
 
       tagsDropdown.style.display = "block";
@@ -666,7 +666,7 @@
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({
         "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
-      }[c]));
+      }));
     }
     function escapeAttr(s) {
       return String(s).replace(/"/g, "&quot;");
