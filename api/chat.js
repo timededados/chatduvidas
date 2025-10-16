@@ -245,7 +245,8 @@ function formatDictRecommendations(selected) {
       : "";
     return `• ${titulo}${tipoStr}${autor}${linkBtn}${img}`;
   });
-  return ["<strong>Recomendações do dicionário:</strong>", ...lines].join("\n");
+  // Título alterado para "Conteúdo complementar:"
+  return ["<strong>Conteúdo complementar:</strong>", ...lines].join("\n");
 }
 
 async function recommendFromDictionary(req, question) {
@@ -555,9 +556,18 @@ Instruções de resposta:
 
     // +++ Novo: etapa de recomendação do dicionário e concatenação da resposta +++
     const dictRec = await recommendFromDictionary(req, question);
+
+    // Novo: cabeçalho com páginas (singular/plural). Evita se não encontrou conteúdo.
+    const notFound = answer === "Não encontrei conteúdo no livro.";
+    const pagesHeader = (!notFound && nonEmptyPages?.length)
+      ? `A resposta para a iformação solicitada se encontra ${nonEmptyPages.length > 1 ? "nas páginas" : "na página"}: ${nonEmptyPages.join(", ")}`
+      : "";
+
+    const baseAnswer = pagesHeader ? `${pagesHeader}\n\n${answer}` : answer;
+
     const finalAnswer = dictRec.text
-      ? `${answer}\n\n${dictRec.text}`
-      : answer;
+      ? `${baseAnswer}\n\n${dictRec.text}`
+      : baseAnswer;
 
     return res.status(200).json({
       answer: finalAnswer,
