@@ -120,6 +120,25 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
+// Novo: extrai páginas citadas no texto final (ex.: "Página 10", "(p. 10)")
+function extractCitedPages(text) {
+  if (!text) return [];
+  const set = new Set();
+  const patterns = [
+    /página\s+(\d+)/gi,    // "Página 123"
+    /pagina\s+(\d+)/gi,    // "Pagina 123" (sem acento)
+    /\(p\.\s*(\d+)\)/gi    // "(p. 123)"
+  ];
+  for (const re of patterns) {
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const n = parseInt(m[1], 10);
+      if (!isNaN(n)) set.add(n);
+    }
+  }
+  return Array.from(set).sort((a, b) => a - b);
+}
+
 // Adicionado: funções de busca no sumário (faltavam)
 function buildSummaryIndex(sumario) {
   const index = new Map();
@@ -557,13 +576,21 @@ Instruções de resposta:
     // +++ Novo: etapa de recomendação do dicionário e concatenação da resposta +++
     const dictRec = await recommendFromDictionary(req, question);
 
-    // Novo: cabeçalho com páginas (singular/plural). Evita se não encontrou conteúdo.
+    // Ajuste: detectar páginas realmente citadas na resposta para montar o título
     const notFound = answer === "Não encontrei conteúdo no livro.";
-    const pagesHeader = (!notFound && nonEmptyPages?.length)
-      ? `A resposta para a iformação solicitada se encontra ${nonEmptyPages.length > 1 ? "nas páginas" : "na página"}: ${nonEmptyPages.join(", ")}`
-      : "";
+    const citedPages = extractCitedPages(answer);
+    let headerLine = "";
+    if (!notFound && citedPages.length > 0) {
+      if (citedPages.length === 1) {
+        // Singular: sem listar número(s)
+        headerLine = "<strong>A resposta para a iformação solicitada se encontra na página:</strong>";
+      } else {
+        // Plural: listar as páginas
+        headerLine = `<strong>A resposta para a iformação solicitada se encontra nas páginas:</strong> ${citedPages.join(", ")}`;
+      }
+    }
 
-    const baseAnswer = pagesHeader ? `${pagesHeader}\n\n${answer}` : answer;
+    const baseAnswer = headerLine ? `${headerLine}\n\n${answer}` : answer;
 
     const finalAnswer = dictRec.text
       ? `${baseAnswer}\n\n${dictRec.text}`
