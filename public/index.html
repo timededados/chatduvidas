@@ -235,6 +235,36 @@
       30% { opacity: 0.5; }
     }
     
+    /* Botão de microfone */
+    #mic {
+      padding: 12px 16px;
+      border-radius: 12px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--fg);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    #mic:hover { box-shadow: 0 4px 12px var(--shadow); }
+    #mic[disabled] { opacity: 0.6; cursor: not-allowed; }
+    #mic.recording {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: #fff;
+    }
+    #mic .dot {
+      width: 8px; height: 8px; border-radius: 999px; background: #ef4444;
+    }
+    #mic.recording .dot {
+      background: #fff;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    
     /* Responsivo */
     @media (max-width: 640px) {
       #chat-container {
@@ -266,6 +296,16 @@
     <div id="chat"></div>
     <div id="input-area">
       <textarea id="question" placeholder="Digite sua pergunta... (Enter para enviar, Shift+Enter para nova linha)"></textarea>
+      <button id="mic" title="Falar pergunta">
+        <span class="dot"></span>
+        <span id="mic-label">Falar</span>
+        <svg id="mic-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
       <button id="send">
         <span>Enviar</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -280,6 +320,8 @@
     const chat = document.getElementById("chat");
     const q = document.getElementById("question");
     const btn = document.getElementById("send");
+    const micBtn = document.getElementById("mic");
+    const micLabel = document.getElementById("mic-label");
 
     function append(role, text) {
       const msg = document.createElement("div");
@@ -342,6 +384,137 @@
       q.style.height = "60px";
       q.style.height = Math.min(q.scrollHeight, 120) + "px";
     });
+    
+    // ===== Gravação de áudio (voz) =====
+    let mediaRecorder = null;
+    let recChunks = [];
+    let recTimer = null;
+    let recStart = 0;
+
+    function supportedMimeType() {
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+        "audio/mpeg"
+      ];
+      for (const t of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
+      }
+      return "";
+    }
+
+    function fmt(ms) {
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
+    }
+
+    function setRecordingUI(on) {
+      if (on) {
+        micBtn.classList.add("recording");
+        micLabel.textContent = "Gravando 00:00";
+      } else {
+        micBtn.classList.remove("recording");
+        micLabel.textContent = "Falar";
+      }
+      btn.disabled = on; // evita enviar texto enquanto grava
+      q.disabled = on;
+    }
+
+    function startTimer() {
+      recStart = Date.now();
+      recTimer = setInterval(() => {
+        micLabel.textContent = `Gravando ${fmt(Date.now() - recStart)}`;
+      }, 250);
+    }
+
+    function stopTimer() {
+      clearInterval(recTimer);
+      recTimer = null;
+    }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const type = supportedMimeType();
+        mediaRecorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+        recChunks = [];
+        mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data); };
+        mediaRecorder.onstop = async () => {
+          stopTimer();
+          setRecordingUI(false);
+          const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+          await sendAudio(blob);
+          stream.getTracks().forEach(t => t.stop());
+          mediaRecorder = null;
+        };
+        setRecordingUI(true);
+        startTimer();
+        mediaRecorder.start();
+      } catch (e) {
+        alert("Não foi possível acessar o microfone.");
+        console.error(e);
+        setRecordingUI(false);
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+    }
+
+    async function sendAudio(blob) {
+      append("user", "🎙️ Mensagem de voz");
+      append("bot", '<span class="typing">⏳ Buscando informação...</span>');
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result); // data:*/*;base64,...
+          r.onerror = reject;
+          r.readAsDataURL(blob);
+        });
+        const resp = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audio: dataUrl, audio_mime: blob.type || "audio/webm" })
+        });
+        const data = await resp.json();
+        chat.lastChild.remove(); // remove "Buscando..."
+        if (data.error) {
+          append("bot", "⚠️ Erro: " + data.error);
+        } else {
+          append("bot", data.answer);
+        }
+      } catch (e) {
+        chat.lastChild.remove();
+        append("bot", "⚠️ Erro de conexão: " + e.message);
+      }
+    }
+
+    function toggleRecording() {
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        alert("Gravação de áudio não suportada neste navegador.");
+        return;
+      }
+      if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+    }
+
+    // Inicializa botão de microfone
+    (function initMic() {
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        micBtn.disabled = true;
+        micBtn.title = "Gravação não suportada neste navegador";
+      }
+      micBtn.addEventListener("click", toggleRecording);
+    })();
   </script>
 </body>
 </html>
