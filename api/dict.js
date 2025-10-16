@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DICT_PATH = path.join(DATA_DIR, "dictionary.json");
+const BUCKET_NAME = "dictionary-images"; // bucket público para imagens
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -47,13 +48,44 @@ function validateEntry(input) {
   const pago = Boolean(pagoRaw);
   const link = String(input.link || "").trim();
   if (link && !/^https?:\/\/\S+/i.test(link)) return { ok: false, error: "link inválido" };
-  const imagemUrl = String(input.imagemUrl || "").trim();
+
   let tags = input.tags;
   if (typeof tags === "string") {
     tags = tags.split(",").map(t => t.trim()).filter(Boolean);
   }
   if (!Array.isArray(tags)) tags = [];
-  return { ok: true, value: { titulo, autor, tipo_conteudo: tipoConteudo, pago, link, imagem_url: imagemUrl, tags } };
+
+  // Novo: imagemUrl (opcional)
+  const imagemUrl = String(input.imagemUrl || input.imagem_url || "").trim();
+  if (imagemUrl && !/^https?:\/\/\S+/i.test(imagemUrl)) {
+    return { ok: false, error: "imagemUrl inválida" };
+  }
+
+  return { ok: true, value: { titulo, autor, tipo_conteudo: tipoConteudo, pago, link, tags, imagem_url: imagemUrl } };
+}
+
+// Upload helper: salva base64 no Storage e retorna public URL
+async function uploadBase64ToStorage({ id, base64, mime, originalName }) {
+  if (!base64 || !mime || !id) return null;
+  if (!/^image\//i.test(mime)) throw new Error("Tipo de imagem inválido");
+  const buffer = Buffer.from(base64, "base64");
+  const maxBytes = 5 * 1024 * 1024; // 5MB no servidor
+  if (buffer.length > maxBytes) throw new Error("Imagem excede 5MB");
+
+  const safeName = String(originalName || `img-${Date.now()}`).replace(/[^a-z0-9._-]+/gi, "-");
+  const ext = path.extname(safeName) || "";
+  const fname = `${Date.now()}-${safeName}`;
+  const objectPath = `${id}/${fname}`;
+
+  const { error: uploadError } = await supabase
+    .storage
+    .from(BUCKET_NAME)
+    .upload(objectPath, buffer, { contentType: mime, upsert: true });
+
+  if (uploadError) throw uploadError;
+
+  const { data: publicData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(objectPath);
+  return publicData?.publicUrl || null;
 }
 
 export default async function handler(req, res) {
@@ -70,7 +102,6 @@ export default async function handler(req, res) {
 
       if (error) throw error;
 
-      // Converter campos do DB para formato frontend
       const items = (data || []).map(item => ({
         id: item.id,
         titulo: item.titulo,
@@ -78,8 +109,8 @@ export default async function handler(req, res) {
         tipoConteudo: item.tipo_conteudo,
         pago: item.pago,
         link: item.link,
-        imagemUrl: item.imagem_url,
         tags: item.tags || [],
+        imagemUrl: item.imagem_url || null,
         createdAt: item.created_at,
         updatedAt: item.updated_at
       }));
@@ -109,8 +140,8 @@ export default async function handler(req, res) {
         tipoConteudo: data.tipo_conteudo,
         pago: data.pago,
         link: data.link,
-        imagemUrl: data.imagem_url,
         tags: data.tags || [],
+        imagemUrl: data.imagem_url || null,
         createdAt: data.created_at,
         updatedAt: data.updated_at
       };
@@ -123,14 +154,28 @@ export default async function handler(req, res) {
       const v = validateEntry(req.body || {});
       if (!v.ok) return res.status(400).json({ error: v.error });
 
-      const newItem = {
-        id: genId(),
-        ...v.value
+      const newId = genId();
+
+      // Se veio imagem em base64, subir para o Storage
+      let finalImagemUrl = v.value.imagem_url || null;
+      if (req.body?.imagemData) {
+        finalImagemUrl = await uploadBase64ToStorage({
+          id: newId,
+          base64: req.body.imagemData,
+          mime: req.body.imagemType,
+          originalName: req.body.imagemName
+        });
+      }
+
+      const insertPayload = {
+        id: newId,
+        ...v.value,
+        imagem_url: finalImagemUrl
       };
 
       const { data, error } = await supabase
         .from("dictionary")
-        .insert([newItem])
+        .insert([insertPayload])
         .select()
         .single();
 
@@ -143,8 +188,8 @@ export default async function handler(req, res) {
         tipoConteudo: data.tipo_conteudo,
         pago: data.pago,
         link: data.link,
-        imagemUrl: data.imagem_url,
         tags: data.tags || [],
+        imagemUrl: data.imagem_url || null,
         createdAt: data.created_at,
         updatedAt: data.updated_at
       };
@@ -157,10 +202,22 @@ export default async function handler(req, res) {
       const v = validateEntry(req.body || {});
       if (!v.ok) return res.status(400).json({ error: v.error });
 
+      // Se veio nova imagem em base64, sobrescreve a URL com a nova
+      let finalImagemUrl = v.value.imagem_url || null;
+      if (req.body?.imagemData) {
+        finalImagemUrl = await uploadBase64ToStorage({
+          id,
+          base64: req.body.imagemData,
+          mime: req.body.imagemType,
+          originalName: req.body.imagemName
+        });
+      }
+
       const { data, error } = await supabase
         .from("dictionary")
         .update({
           ...v.value,
+          imagem_url: finalImagemUrl,
           updated_at: new Date().toISOString()
         })
         .eq("id", id)
@@ -181,8 +238,8 @@ export default async function handler(req, res) {
         tipoConteudo: data.tipo_conteudo,
         pago: data.pago,
         link: data.link,
-        imagemUrl: data.imagem_url,
         tags: data.tags || [],
+        imagemUrl: data.imagem_url || null,
         createdAt: data.created_at,
         updatedAt: data.updated_at
       };
