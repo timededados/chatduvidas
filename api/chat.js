@@ -242,6 +242,63 @@ function buildDictText(item) {
   return parts.join(" | ");
 }
 
+// [ADD] Busca relevante no dicionário usando embeddings (com pré-filtro lexical)
+async function findRelevantDictionaryItems({ question, queryEmb, qTokens }) {
+  try {
+    const items = await getDictionaryItems();
+    if (!items || !items.length) return [];
+
+    const prepared = items.map(it => {
+      const text = buildDictText(it);
+      return {
+        item: it,
+        text,
+        norm: normalizeStr(text)
+      };
+    });
+
+    // Pré-filtro lexical: manter itens que contenham algum token da pergunta
+    let candidates = prepared.filter(p =>
+      qTokens.some(t => p.norm.includes(t))
+    );
+
+    // Fallback/corte de tamanho
+    if (!candidates.length) {
+      candidates = prepared.slice(0, Math.min(200, prepared.length));
+    } else {
+      candidates = candidates.slice(0, Math.min(300, candidates.length));
+    }
+
+    if (!candidates.length) return [];
+
+    // Embeddings em batch para os candidatos
+    const embReq = { model: EMB_MODEL, input: candidates.map(c => c.text) };
+    logOpenAIRequest("embeddings.create(dict)", embReq);
+    const t0 = Date.now();
+    const embResp = await openai.embeddings.create(embReq);
+    const embMs = Date.now() - t0;
+    logOpenAIResponse("embeddings.create(dict)", embResp, {
+      duration_ms: embMs,
+      inputs: candidates.length
+    });
+
+    const sims = embResp.data.map((row, idx) => ({
+      item: candidates[idx].item,
+      score: cosineSim(queryEmb, row.embedding)
+    }));
+
+    // Ordenar por similaridade
+    sims.sort((a, b) => b.score - a.score);
+
+    // Heurística: top 3 com score mínimo
+    const top = sims.filter(s => s.score >= 0.78).slice(0, 3);
+    return top;
+  } catch (e) {
+    logLine("Erro em findRelevantDictionaryItems:", String(e?.message || e));
+    return [];
+  }
+}
+
 // ---------- Função principal ----------
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
