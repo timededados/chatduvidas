@@ -374,6 +374,33 @@
       text-align: center;
     }
     
+    .thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      background: #111;
+    }
+    .img-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .img-actions button {
+      padding: 6px 12px;
+      font-size: 13px;
+      background: var(--border);
+      color: var(--fg);
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    .img-actions button:hover {
+      background: #4a4a62;
+    }
+    
     @media (max-width: 768px) {
       .row {
         grid-template-columns: 1fr;
@@ -461,6 +488,12 @@
         <span class="label-text">Imagem (somente se pago)</span>
         <input type="file" id="imagem" accept="image/*" />
         <input type="hidden" id="imagemUrl" />
+        <div id="imagemPreview" class="img-actions" style="display:none">
+          <a id="imagemPreviewLink" href="#" target="_blank" rel="noopener">
+            <img id="imagemPreviewImg" class="thumb" alt="Prévia" />
+          </a>
+          <button type="button" id="removeImagemBtn">Remover imagem</button>
+        </div>
         <small class="muted">Tamanho máximo 3MB. Formatos: JPG, PNG, GIF.</small>
       </label>
 
@@ -483,6 +516,7 @@
             <th>Pago</th>
             <th>Link</th>
             <th>Tags</th>
+            <th>Imagem</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -680,6 +714,7 @@
       $("#link").value = d.link || "";
       // Atualizar imagem URL existente (quando editando)
       if (imagemUrlInput) imagemUrlInput.value = d.imagemUrl || "";
+      updateImagemPreview();
 
       // Atualizar tags selecionadas (dedup)
       selectedTags = Array.isArray(d.tags) ? [...new Set(d.tags)] : [];
@@ -693,17 +728,58 @@
     const imagemField = $("#imagemField");
     const imagemInput = $("#imagem");
     const imagemUrlInput = $("#imagemUrl");
+    const imagemPreview = $("#imagemPreview");
+    const imagemPreviewImg = $("#imagemPreviewImg");
+    const imagemPreviewLink = $("#imagemPreviewLink");
+    const removeImagemBtn = $("#removeImagemBtn");
+
+    function updateImagemPreview() {
+      const url = (imagemUrlInput?.value || "").trim();
+      // Se houver arquivo novo selecionado, mostra prévia local
+      if (imagemInput?.files?.[0]) {
+        const file = imagemInput.files[0];
+        const localUrl = URL.createObjectURL(file);
+        imagemPreviewImg.src = localUrl;
+        imagemPreviewLink.href = localUrl;
+        imagemPreview.style.display = "flex";
+        return;
+      }
+      // Caso contrário, usa URL existente (se houver)
+      if (url) {
+        imagemPreviewImg.src = url;
+        imagemPreviewLink.href = url;
+        imagemPreview.style.display = "flex";
+      } else {
+        imagemPreview.style.display = "none";
+        imagemPreviewImg.removeAttribute("src");
+        imagemPreviewLink.removeAttribute("href");
+      }
+    }
 
     function toggleImagemField() {
       const pagoVal = $$("input[name='pago']:checked")[0]?.value || "nao";
-      imagemField.style.display = (pagoVal === "sim") ? "block" : "none";
-      if (pagoVal !== "sim") {
-        // limpar seleção de arquivo se voltar para "Não"
+      const show = (pagoVal === "sim");
+      imagemField.style.display = show ? "block" : "none";
+      if (!show) {
+        // marcar para remover imagem caso mude para "Não"
         if (imagemInput) imagemInput.value = "";
+        if (imagemUrlInput) imagemUrlInput.value = "";
+        updateImagemPreview();
       }
     }
     // Alterar visibilidade quando mudar o "Pago?"
     $$("input[name='pago']").forEach(r => r.addEventListener("change", toggleImagemField));
+    if (imagemInput) {
+      imagemInput.addEventListener("change", updateImagemPreview);
+    }
+    if (removeImagemBtn) {
+      removeImagemBtn.addEventListener("click", () => {
+        if (imagemInput) imagemInput.value = "";
+        if (imagemUrlInput) imagemUrlInput.value = "";
+        updateImagemPreview();
+        setMsg("🗑️ Imagem marcada para remoção ao salvar.");
+      });
+    }
 
     async function loadList() {
       const res = await fetch("/api/dict");
@@ -715,12 +791,15 @@
       const body = $("#listBody");
       body.innerHTML = "";
       if (!items.length) {
-        body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:24px;">Nenhum item cadastrado ainda.</td></tr>';
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:24px;">Nenhum item cadastrado ainda.</td></tr>';
         return;
       }
       items.forEach(item => {
         const tr = document.createElement("tr");
         const tagsHtml = (item.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+        const imgHtml = item.imagemUrl
+          ? `<a href="${escapeAttr(item.imagemUrl)}" target="_blank" rel="noopener"><img class="thumb" src="${escapeAttr(item.imagemUrl)}" alt="img" /></a>`
+          : "—";
         tr.innerHTML = `
           <td><strong>${escapeHtml(item.titulo)}</strong></td>
           <td>${escapeHtml(item.autor || "—")}</td>
@@ -728,6 +807,7 @@
           <td>${item.pago ? "✅ Sim" : "❌ Não"}</td>
           <td>${item.link ? `<a href="${escapeAttr(item.link)}" target="_blank">🔗 Abrir</a>` : "—"}</td>
           <td>${tagsHtml || "—"}</td>
+          <td>${imgHtml}</td>
           <td class="actions">
             <button data-act="edit" data-id="${item.id}">✏️ Editar</button>
             <button data-act="del" data-id="${item.id}">🗑️ Excluir</button>
@@ -831,6 +911,7 @@
       selectedTags = [];
       payloadToForm({ titulo: "", autor: "", tipoConteudo: "", pago: false, link: "", tags: [], imagemUrl: "" });
       if (imagemInput) imagemInput.value = "";
+      updateImagemPreview();
     }
 
     // Helper para base64 (retorna somente a parte após a vírgula)
@@ -856,6 +937,7 @@
     loadCategorias();
     loadList();
     toggleImagemField();
+    updateImagemPreview();
   </script>
 </body>
 </html>

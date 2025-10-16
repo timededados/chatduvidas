@@ -97,6 +97,21 @@ async function uploadBase64ToStorage({ id, base64, mime, originalName }) {
   return publicData?.publicUrl || null;
 }
 
+// Novo: remover todas as imagens do item (pasta id/)
+async function deleteAllImagesForId(id) {
+  try {
+    if (!id) return;
+    // lista objetos na "pasta" id/
+    const { data: files, error: listErr } = await supabase.storage.from(BUCKET_NAME).list(id, { limit: 100 });
+    if (listErr) return; // não falhar a operação principal por limpeza
+    if (!files || files.length === 0) return;
+    const paths = files.map(f => `${id}/${f.name}`);
+    await supabase.storage.from(BUCKET_NAME).remove(paths);
+  } catch {
+    // ignora erros de limpeza
+  }
+}
+
 export default async function handler(req, res) {
   const { method } = req;
   const { id } = req.query;
@@ -112,7 +127,7 @@ export default async function handler(req, res) {
     if (isWrite && usingAnon) {
       return res.status(403).json({
         error:
-          "RLS bloqueou a operação. Configure SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_ROLE) como variável de ambiente do servidor e faça o deploy novamente. Em Vercel: Project > Settings > Environment Variables > Add SUPABASE_SERVICE_ROLE_KEY com o valor do 'service_role' (Supabase > Project Settings > API). Nunca exponha essa chave no cliente."
+          "RLS: configure SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_ROLE) nas variáveis do servidor."
       });
     }
 
@@ -234,6 +249,9 @@ export default async function handler(req, res) {
           mime: req.body.imagemType,
           originalName: req.body.imagemName
         });
+      } else if (finalImagemUrl === null) {
+        // sem nova imagem e imagemUrl vazia/null => remover imagens existentes
+        await deleteAllImagesForId(id);
       }
 
       const { data, error } = await supabase
@@ -279,6 +297,9 @@ export default async function handler(req, res) {
 
       if (error) throw error;
 
+      // limpeza best-effort das imagens
+      await deleteAllImagesForId(id);
+
       return res.status(200).json({ ok: true });
     }
 
@@ -288,8 +309,7 @@ export default async function handler(req, res) {
     const msg = String(e?.message || e);
     if (/row-level security/i.test(msg) || /violates row-level security/i.test(msg)) {
       return res.status(403).json({
-        error:
-          "RLS bloqueou a operação. Configure SUPABASE_SERVICE_ROLE_KEY (server-only) ou crie policies permissivas para a tabela 'dictionary' e o bucket 'dictionary-images'."
+        error: "RLS: verifique as policies ou configure SUPABASE_SERVICE_ROLE_KEY no servidor."
       });
     }
     return res.status(500).json({ error: msg });
