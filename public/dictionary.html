@@ -492,20 +492,15 @@
     
     async function loadCategorias() {
       try {
-        const res = await fetch("/data/sumario_final.json");
-        const sumario = await res.json();
+        const res = await fetch("/api/categorias");
+        const data = await res.json();
         
-        // Extrair todas as categorias únicas
-        const categoriasSet = new Set();
-        sumario.forEach(secao => {
-          (secao.categorias || []).forEach(cat => {
-            if (cat.categoria) {
-              categoriasSet.add(cat.categoria);
-            }
-          });
-        });
-        
-        categorias = Array.from(categoriasSet).sort();
+        if (data.categorias && Array.isArray(data.categorias)) {
+          categorias = data.categorias;
+          console.log("Categorias carregadas:", categorias.length);
+        } else {
+          console.error("Formato de resposta inválido:", data);
+        }
       } catch (e) {
         console.error("Erro ao carregar categorias:", e);
       }
