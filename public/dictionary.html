@@ -511,11 +511,9 @@
     const tagsInputWrapper = $("#tagsInputWrapper");
     const tagsDropdown = $("#tagsDropdown");
 
-    // Novo: delegação do clique no dropdown (funciona mesmo após re-render)
-    tagsDropdown.addEventListener("click", (e) => {
-      const item = e.target.closest(".tags-dropdown-item");
-      if (!item) return;
-      const tag = item.dataset.tag;
+    // Helper: adiciona tag e re-renderiza (ignora duplicadas)
+    function addTag(tag) {
+      if (!tag) return;
       if (!selectedTags.includes(tag)) {
         selectedTags.push(tag);
         renderSelectedTags();
@@ -523,6 +521,24 @@
       tagsSearch.value = "";
       tagsDropdown.style.display = "none";
       tagsSearch.focus();
+    }
+
+    // Delegação: usar pointerdown para capturar antes do blur/propagação
+    tagsDropdown.addEventListener("pointerdown", (e) => {
+      const item = e.target.closest(".tags-dropdown-item");
+      if (!item) return;
+      e.preventDefault();
+      e.stopPropagation();
+      addTag(item.dataset.tag);
+    });
+
+    // Fallback para navegadores sem pointer events (opcional)
+    tagsDropdown.addEventListener("mousedown", (e) => {
+      const item = e.target.closest(".tags-dropdown-item");
+      if (!item) return;
+      e.preventDefault();
+      e.stopPropagation();
+      addTag(item.dataset.tag);
     });
 
     function renderSelectedTags() {
@@ -534,13 +550,11 @@
       selectedTags.forEach(tag => {
         const chip = document.createElement("div");
         chip.className = "tag-chip";
-
         const textNode = document.createTextNode(tag);
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.dataset.tag = tag; // mantém dataset simples
+        btn.dataset.tag = tag;
         btn.textContent = "×";
-
         chip.appendChild(textNode);
         chip.appendChild(btn);
         frag.appendChild(chip);
@@ -592,6 +606,21 @@
 
     tagsSearch.addEventListener("input", (e) => {
       filterAndShowDropdown(e.target.value);
+    });
+
+    // Teclado: Enter/Tab adiciona o primeiro item listado; Backspace remove última tag se input vazio
+    tagsSearch.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === "Tab") && tagsDropdown.style.display !== "none") {
+        const first = tagsDropdown.querySelector(".tags-dropdown-item");
+        if (first) {
+          e.preventDefault();
+          addTag(first.dataset.tag);
+        }
+      } else if (e.key === "Backspace" && !tagsSearch.value && selectedTags.length) {
+        // UX: remover última tag se input está vazio
+        selectedTags.pop();
+        renderSelectedTags();
+      }
     });
 
     tagsSearch.addEventListener("focus", (e) => {
