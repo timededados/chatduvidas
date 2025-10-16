@@ -6,97 +6,60 @@
   <title>Chat - Livro Abramede</title>
   <style>
     :root {
-      /* Paleta principal - tons de azul/roxo com gradientes sutis */
-      --bg-main: #0f0f1a;           /* Fundo principal - preto azulado */
-      --bg-container: #1a1b2e;      /* Container - azul muito escuro */
-      --bg-input: #16213e;          /* Área de input - azul escuro */
+      /* Tema claro com cores harmoniosas */
+      --bg: #f8fafc;           /* Fundo geral - cinza muito claro */
+      --fg: #1e293b;           /* Texto principal - azul escuro */
+      --primary: #2563eb;      /* Azul principal */
+      --secondary: #ffffff;    /* Fundo do chat - branco */
+      --user: #2563eb;         /* Balão do usuário - azul */
+      --bot: #f1f5f9;          /* Balão do bot - cinza claro */
+      --bot-text: #1e293b;     /* Texto do bot - escuro */
+      --border: #e2e8f0;       /* Bordas sutis */
+      --shadow: rgba(0,0,0,0.08); /* Sombras suaves */
       
-      /* Cores dos balões */
-      --user-bg: #4361ee;            /* Azul vibrante para usuário */
-      --bot-bg: #7209b7;             /* Roxo para bot - harmônico com azul */
-      --bot-gradient: linear-gradient(135deg, #7209b7 0%, #560bad 100%);
-      
-      /* Textos e destaques */
-      --text-primary: #e9ecef;       /* Texto principal - branco suave */
-      --text-secondary: #8892a6;     /* Texto secundário - cinza azulado */
-      --accent: #00d4ff;             /* Cyan para destaques */
-      --button-hover: #5a7fee;       /* Hover dos botões */
-      
-      /* Efeitos e bordas */
-      --shadow: rgba(0, 0, 0, 0.4);
-      --border-subtle: rgba(255, 255, 255, 0.06);
+      /* Cores dos elementos internos das respostas (azul marinho) */
+      --navy-dark: #0f172a;
+      --navy-medium: #1e293b;
+      --navy-light: #334155;
     }
     
     * {
-      margin: 0;
-      padding: 0;
       box-sizing: border-box;
     }
     
     body {
-      background: var(--bg-main);
-      background-image: 
-        radial-gradient(circle at 20% 50%, rgba(67, 97, 238, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(114, 9, 183, 0.05) 0%, transparent 50%);
-      color: var(--text-primary);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
+      margin: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-height: 100vh;
-      padding: 20px;
+      height: 100vh;
+      font-size: 15px;
     }
     
     h2 {
-      margin: 20px 0 16px;
-      background: linear-gradient(135deg, var(--accent) 0%, var(--user-bg) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      margin: 20px 0 10px;
+      color: var(--navy-dark);
       text-align: center;
-      font-size: 28px;
-      font-weight: 700;
-    }
-    
-    .top-actions {
-      width: 90%;
-      max-width: 800px;
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 12px;
-    }
-    
-    .link-btn {
-      background: linear-gradient(135deg, var(--user-bg), var(--button-hover));
-      color: white;
-      padding: 10px 18px;
-      border-radius: 12px;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 14px rgba(67, 97, 238, 0.25);
-    }
-    
-    .link-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(67, 97, 238, 0.35);
+      font-size: 24px;
+      font-weight: 600;
     }
     
     #chat-container {
       width: 90%;
       max-width: 800px;
-      background: var(--bg-container);
-      border: 1px solid var(--border-subtle);
-      border-radius: 20px;
+      background: var(--secondary);
+      border-radius: 16px;
       padding: 20px;
       display: flex;
       flex-direction: column;
-      height: 75vh;
+      height: 80vh;
       box-shadow: 
-        0 0 40px var(--shadow),
-        inset 0 1px 0 var(--border-subtle);
-      backdrop-filter: blur(10px);
+        0 1px 3px var(--shadow),
+        0 4px 12px var(--shadow);
+      border: 1px solid var(--border);
     }
     
     #chat {
@@ -104,7 +67,7 @@
       overflow-y: auto;
       padding-right: 8px;
       scrollbar-width: thin;
-      scrollbar-color: var(--border-subtle) transparent;
+      scrollbar-color: var(--border) transparent;
     }
     
     #chat::-webkit-scrollbar {
@@ -116,40 +79,29 @@
     }
     
     #chat::-webkit-scrollbar-thumb {
-      background: var(--border-subtle);
+      background: var(--border);
       border-radius: 3px;
-    }
-    
-    #chat::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.1);
     }
     
     .msg {
       margin: 12px 0;
       display: flex;
-      animation: slideIn 0.3s ease;
+      animation: fadeIn 0.3s ease;
     }
     
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     
     .bubble {
       padding: 12px 16px;
-      border-radius: 18px;
-      max-width: 70%;
+      border-radius: 16px;
+      max-width: 75%;
       line-height: 1.5;
       word-wrap: break-word;
       white-space: pre-wrap;
-      font-size: 15px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      font-size: 14px;
     }
     
     .user {
@@ -157,10 +109,10 @@
     }
     
     .user .bubble {
-      background: var(--user-bg);
+      background: var(--user);
       color: white;
       border-bottom-right-radius: 4px;
-      box-shadow: 0 3px 12px rgba(67, 97, 238, 0.3);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
     }
     
     .bot {
@@ -168,134 +120,139 @@
     }
     
     .bot .bubble {
-      background: var(--bot-gradient);
-      color: white;
+      background: var(--bot);
+      color: var(--bot-text);
       border-bottom-left-radius: 4px;
-      box-shadow: 0 3px 12px rgba(114, 9, 183, 0.25);
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 4px var(--shadow);
     }
     
-    /* Estilos especiais para conteúdo HTML nas respostas */
-    .bot .bubble h1, .bot .bubble h2 {
-      font-size: 18px;
-      margin: 0 0 8px 0;
-      background: none;
-      -webkit-text-fill-color: white;
-    }
-    
-    .bot .bubble p {
-      color: rgba(255, 255, 255, 0.9);
-    }
-    
+    /* Estilos especiais para o conteúdo HTML dentro das respostas */
     .bot .bubble section {
-      background: rgba(0, 0, 0, 0.2) !important;
-      border: 1px solid rgba(255, 255, 255, 0.1) !important;
-      margin: 10px 0 !important;
+      margin: 8px 0;
+    }
+    
+    .bot .bubble h1, .bot .bubble h2 {
+      color: var(--navy-dark);
+      margin: 0 0 8px 0;
     }
     
     #input-area {
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       margin-top: 16px;
       gap: 12px;
     }
     
     #question {
       flex: 1;
-      padding: 14px 16px;
-      border-radius: 16px;
-      border: 1px solid var(--border-subtle);
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
       outline: none;
-      font-size: 15px;
+      font-size: 14px;
       resize: none;
-      min-height: 52px;
-      max-height: 120px;
-      background: var(--bg-input);
-      color: var(--text-primary);
-      transition: all 0.3s ease;
+      height: 60px;
+      background: white;
+      color: var(--fg);
       font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     
     #question:focus {
-      border-color: var(--user-bg);
-      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
     
     #question::placeholder {
-      color: var(--text-secondary);
+      color: #94a3b8;
     }
     
     #send {
-      padding: 14px 28px;
+      padding: 12px 24px;
       border: none;
-      border-radius: 16px;
-      background: linear-gradient(135deg, var(--user-bg), var(--button-hover));
+      border-radius: 12px;
+      background: var(--primary);
       color: white;
-      font-size: 15px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 14px rgba(67, 97, 238, 0.25);
+      transition: 0.2s;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     
     #send:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(67, 97, 238, 0.35);
+      background: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
     }
     
     #send:active {
       transform: translateY(0);
     }
     
+    .link-btn {
+      background: white;
+      color: var(--primary);
+      padding: 10px 18px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: 0.2s;
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .link-btn:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+    
+    .top-actions {
+      width: 90%;
+      max-width: 800px;
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+    
     /* Indicador de digitação */
-    .typing-indicator {
+    .typing {
       display: inline-block;
-      padding: 12px 16px;
+      animation: pulse 1.4s infinite;
     }
     
-    .typing-indicator span {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.6);
-      margin: 0 2px;
-      animation: typing 1.4s infinite;
+    @keyframes pulse {
+      0%, 60%, 100% { opacity: 1; }
+      30% { opacity: 0.5; }
     }
     
-    .typing-indicator span:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-    
-    .typing-indicator span:nth-child(3) {
-      animation-delay: 0.4s;
-    }
-    
-    @keyframes typing {
-      0%, 60%, 100% {
-        transform: translateY(0);
-        opacity: 0.6;
-      }
-      30% {
-        transform: translateY(-10px);
-        opacity: 1;
-      }
-    }
-    
-    /* Responsividade */
-    @media (max-width: 600px) {
+    /* Responsivo */
+    @media (max-width: 640px) {
       #chat-container {
-        width: 100%;
-        height: 80vh;
-        border-radius: 16px;
+        width: 95%;
         padding: 16px;
+        height: 85vh;
       }
       
       .bubble {
         max-width: 85%;
       }
       
-      h2 {
-        font-size: 24px;
+      #input-area {
+        gap: 8px;
+      }
+      
+      #send {
+        padding: 12px 16px;
       }
     }
   </style>
@@ -309,7 +266,13 @@
     <div id="chat"></div>
     <div id="input-area">
       <textarea id="question" placeholder="Digite sua pergunta... (Enter para enviar, Shift+Enter para nova linha)"></textarea>
-      <button id="send">Enviar</button>
+      <button id="send">
+        <span>Enviar</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -324,9 +287,9 @@
       const bubble = document.createElement("div");
       bubble.className = "bubble";
       
-      // Se for o indicador de "Pensando...", cria animação especial
-      if (text === "⏳ Pensando...") {
-        bubble.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+      // Se for HTML (contém tags), insere direto; senão converte quebras de linha
+      if (text.includes("<") && text.includes(">")) {
+        bubble.innerHTML = text;
       } else {
         bubble.innerHTML = text.replace(/\n/g, "<br>");
       }
@@ -339,12 +302,10 @@
     async function sendQuestion() {
       const question = q.value.trim();
       if (!question) return;
-      
       append("user", question);
       q.value = "";
-      q.style.height = "52px"; // Reset altura após enviar
-      
-      append("bot", "⏳ Pensando...");
+      q.style.height = "60px"; // Reset altura
+      append("bot", '<span class="typing">⏳ Buscando informação...</span>');
 
       try {
         const resp = await fetch("/api/chat", {
@@ -353,8 +314,7 @@
           body: JSON.stringify({ question })
         });
         const data = await resp.json();
-        chat.lastChild.remove(); // remove "Pensando..."
-        
+        chat.lastChild.remove(); // remove "Buscando..."
         if (data.error) {
           append("bot", "⚠️ Erro: " + data.error);
         } else {
@@ -366,12 +326,6 @@
       }
     }
 
-    // Auto-resize do textarea
-    q.addEventListener("input", function() {
-      this.style.height = "auto";
-      this.style.height = Math.min(this.scrollHeight, 120) + "px";
-    });
-
     // Clique no botão
     btn.addEventListener("click", sendQuestion);
 
@@ -381,6 +335,12 @@
         e.preventDefault();
         sendQuestion();
       }
+    });
+    
+    // Auto-resize do textarea
+    q.addEventListener("input", () => {
+      q.style.height = "60px";
+      q.style.height = Math.min(q.scrollHeight, 120) + "px";
     });
   </script>
 </body>
