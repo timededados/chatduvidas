@@ -511,36 +511,60 @@
     const tagsInputWrapper = $("#tagsInputWrapper");
     const tagsDropdown = $("#tagsDropdown");
 
+    // Novo: delegação do clique no dropdown (funciona mesmo após re-render)
+    tagsDropdown.addEventListener("click", (e) => {
+      const item = e.target.closest(".tags-dropdown-item");
+      if (!item) return;
+      const tag = item.dataset.tag;
+      if (!selectedTags.includes(tag)) {
+        selectedTags.push(tag);
+        renderSelectedTags();
+      }
+      tagsSearch.value = "";
+      tagsDropdown.style.display = "none";
+      tagsSearch.focus();
+    });
+
     function renderSelectedTags() {
-      // Remove chips existentes
-      $$(".tag-chip").forEach(chip => chip.remove());
-      
-      // Adiciona novos chips antes do input
+      // Remover apenas chips dentro do wrapper (não no documento todo)
+      tagsInputWrapper.querySelectorAll(".tag-chip").forEach(chip => chip.remove());
+
+      // Inserir novos chips antes do input usando um fragment
+      const frag = document.createDocumentFragment();
       selectedTags.forEach(tag => {
         const chip = document.createElement("div");
         chip.className = "tag-chip";
-        
+
         const textNode = document.createTextNode(tag);
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.dataset.tag = tag;
+        btn.dataset.tag = tag; // mantém dataset simples
         btn.textContent = "×";
-        
-        // Adicionar event listener ao botão ANTES de inserir no DOM
+
+        chip.appendChild(textNode);
+        chip.appendChild(btn);
+        frag.appendChild(chip);
+      });
+
+      if (tagsInputWrapper.contains(tagsSearch)) {
+        tagsInputWrapper.insertBefore(frag, tagsSearch);
+      } else {
+        tagsInputWrapper.appendChild(frag);
+      }
+
+      // Listeners para remover chips
+      tagsInputWrapper.querySelectorAll(".tag-chip button").forEach(btn => {
         btn.addEventListener("click", () => {
+          const tag = btn.dataset.tag;
           selectedTags = selectedTags.filter(t => t !== tag);
           renderSelectedTags();
         });
-        
-        chip.appendChild(textNode);
-        chip.appendChild(btn);
-        tagsInputWrapper.insertBefore(chip, tagsSearch);
       });
     }
 
     function filterAndShowDropdown(searchTerm) {
       const term = searchTerm.toLowerCase().trim();
-      const filtered = categorias.filter(cat => 
+      const filtered = categorias.filter(cat =>
         cat.toLowerCase().includes(term) && !selectedTags.includes(cat)
       );
 
@@ -553,25 +577,13 @@
         return;
       }
 
-      // Renderizar dropdown usando createElement para evitar problemas de escape
+      // Renderizar dropdown
       tagsDropdown.innerHTML = "";
       filtered.slice(0, 10).forEach(cat => {
         const item = document.createElement("div");
         item.className = "tags-dropdown-item";
         item.dataset.tag = cat;
         item.textContent = cat;
-        
-        // Adicionar event listener diretamente ao criar o elemento
-        item.addEventListener("click", () => {
-          if (!selectedTags.includes(cat)) {
-            selectedTags.push(cat);
-            renderSelectedTags();
-            tagsSearch.value = "";
-            tagsDropdown.style.display = "none";
-            tagsSearch.focus();
-          }
-        });
-        
         tagsDropdown.appendChild(item);
       });
 
