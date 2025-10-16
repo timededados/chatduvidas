@@ -18,14 +18,27 @@ const TOP_K = 6;
 const MAX_CONTEXT_TOKENS = 3000;
 
 // +++ Novo: limites para recomendação do dicionário +++
-const DICT_MAX_CANDIDATES = 20;   // candidatos enviados ao modelo
-const DICT_MAX_RECOMMEND = 5;     // máximo de recomendações finais
+const DICT_MAX_CANDIDATES = 20;
+const DICT_MAX_RECOMMEND = 5;
 
 // +++ NOVO: Configuração de expansão de contexto +++
-const EXPAND_CONTEXT = true;      // Ativar expansão de páginas adjacentes
-const ADJACENT_RANGE = 1;         // Quantas páginas antes/depois incluir (1 = uma antes e uma depois)
+const EXPAND_CONTEXT = true;
+const ADJACENT_RANGE = 1;
 
-// ==== Logging helpers (added) ====
+// +++ NOVO: Configuração da busca híbrida +++
+const HYBRID_SEARCH = {
+  MIN_TERM_LENGTH: 3,           // Tamanho mínimo do termo para busca
+  LITERAL_BOOST: 0.6,           // Boost para páginas com match literal
+  SUMMARY_BOOST_WITH_MATCHES: 0.5,  // Boost para páginas do sumário quando há matches
+  SUMMARY_BOOST_DEFAULT: 0.08,      // Boost padrão para páginas do sumário
+  MAX_PAGES_TO_SCAN: -1,         // -1 = scan all pages, ou defina um limite
+  PHRASE_MATCH_BOOST: 0.8,       // Boost extra se encontrar a frase exata
+  USE_GPT_RERANKING: true,       // Ativa o Stage 3 de re-ranking via GPT
+  RERANK_TOP_N: 10,              // Quantas páginas enviar para o GPT revisar
+  RERANK_SELECT_N: 5             // Quantas páginas o GPT deve selecionar
+};
+
+// ==== Logging helpers ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
 const TRUNC_LIMIT = 800;
 const als = new AsyncLocalStorage();
@@ -48,7 +61,6 @@ function logObj(label, obj) {
   if (store.logs) store.logs.push(`${label}: ${rendered}`);
   console.log(label, rendered);
 }
-// Novo helper opcional para linhas simples
 function logLine(...args) {
   const store = als.getStore();
   if (!(store && store.enabled)) return;
@@ -94,7 +106,6 @@ function logOpenAIResponse(kind, resp, extra = {}) {
   logSection(`Resposta OpenAI: ${kind}`);
   logObj("data", safe);
 }
-// ==== End logging helpers ====
 
 // ---------- Funções auxiliares ----------
 function dot(a, b) {
@@ -107,7 +118,7 @@ function cosineSim(a, b) {
   return dot(a, b) / (norm(a) * norm(b) + 1e-8);
 }
 
-// Determinismo e normalização simples
+// Determinismo e normalização
 function seedFromString(s) {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
@@ -125,14 +136,21 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
-// Novo: extrai páginas citadas no texto final (ex.: "Página 10", "(p. 10)")
+// +++ NOVO: Verifica match de frase exata +++
+function hasPhraseMatch(text, phrase) {
+  const normalizedText = normalizeStr(text);
+  const normalizedPhrase = normalizeStr(phrase);
+  return normalizedText.includes(normalizedPhrase);
+}
+
+// Extrai páginas citadas no texto final
 function extractCitedPages(text) {
   if (!text) return [];
   const set = new Set();
   const patterns = [
-    /página\s+(\d+)/gi,    // "Página 123"
-    /pagina\s+(\d+)/gi,    // "Pagina 123" (sem acento)
-    /\(p\.\s*(\d+)\)/gi    // "(p. 123)"
+    /página\s+(\d+)/gi,
+    /pagina\s+(\d+)/gi,
+    /\(p\.\s*(\d+)\)/gi
   ];
   for (const re of patterns) {
     let m;
@@ -144,15 +162,13 @@ function extractCitedPages(text) {
   return Array.from(set).sort((a, b) => a - b);
 }
 
-// +++ NOVA FUNÇÃO: Expande páginas com adjacentes +++
+// Expande páginas com adjacentes
 function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE) {
   const expandedSet = new Set();
   
   for (const page of selectedPages) {
-    // Adiciona a página original
     expandedSet.add(page);
     
-    // Adiciona páginas anteriores
     for (let i = 1; i <= range; i++) {
       const prevPage = page - i;
       if (pageMap.has(prevPage)) {
@@ -160,7 +176,6 @@ function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE)
       }
     }
     
-    // Adiciona páginas posteriores
     for (let i = 1; i <= range; i++) {
       const nextPage = page + i;
       if (pageMap.has(nextPage)) {
@@ -169,11 +184,10 @@ function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE)
     }
   }
   
-  // Retorna array ordenado
   return Array.from(expandedSet).sort((a, b) => a - b);
 }
 
-// Adicionado: funções de busca no sumário (faltavam)
+// Busca no sumário
 function buildSummaryIndex(sumario) {
   const index = new Map();
   const addKey = (key, pages) => {
@@ -240,7 +254,7 @@ function searchSummary(sumario, query) {
   return Array.from(hits).sort((a, b) => a - b);
 }
 
-// +++ Novo: helpers para recomendação do dicionário +++
+// Helpers para o dicionário
 function buildBaseUrl(req) {
   const proto = req.headers["x-forwarded-proto"] || "http";
   const host = req.headers.host || "localhost";
@@ -257,7 +271,6 @@ function scoreDictItem(item, qTokens) {
   const text = normalizeStr(parts.join(" | "));
   let score = 0;
   for (const t of qTokens) {
-    // prioriza match de tokens do título e tags
     const inTitulo = countOccurrences(normalizeStr(item.titulo || ""), t);
     const inTags = countOccurrences(normalizeStr((item.tags || []).join(" ")), t);
     const inRest = countOccurrences(text, t);
@@ -274,7 +287,7 @@ function pickTopDictCandidates(items, question, limit = DICT_MAX_CANDIDATES) {
   return withScores.slice(0, limit).map(x => x.it);
 }
 
-// Adicionado: helpers para escapar HTML/atributos
+// Helpers HTML
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
 }
@@ -282,7 +295,6 @@ function escapeAttr(s) {
   return String(s).replace(/"/g, "&quot;");
 }
 
-// +++ Novo: mapeia tipo de conteúdo -> rótulo e estilo do botão
 function buttonForType(tipoRaw, isPremium) {
   const tipo = String(tipoRaw || "").toLowerCase();
   if (tipo.includes("podteme")) return { label: "🎧 Ouvir episódio", kind: "primary" };
@@ -293,7 +305,6 @@ function buttonForType(tipoRaw, isPremium) {
   return { label: "🔗 Acessar conteúdo", kind: isPremium ? "premium" : "primary" };
 }
 
-// +++ LAYOUT CORRIGIDO: HTML compacto e limpo
 function btnStyle(kind) {
   const base = "display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:500;font-size:13px;border:1px solid;cursor:pointer;";
   if (kind === "accent") return base + "background:rgba(56,189,248,0.08);border-color:rgba(56,189,248,0.25);color:#38bdf8;";
@@ -301,7 +312,6 @@ function btnStyle(kind) {
   return base + "background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);color:#22c55e;";
 }
 
-// +++ LAYOUT CORRIGIDO: renderiza lista de itens com HTML mínimo
 function renderDictItemsList(items, isPremiumSection) {
   if (!items.length) return "";
   
@@ -313,7 +323,6 @@ function renderDictItemsList(items, isPremiumSection) {
     const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank"` : "";
     const btn = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
     
-    // Adiciona badges para conteúdo premium
     const badges = isPremiumSection ? 
       `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Carga horária: 12h</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Aulas on-demand</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Certificado</span></div>` : "";
     
@@ -326,15 +335,11 @@ function renderDictItemsList(items, isPremiumSection) {
   return `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${label}</span><div style="margin-top:10px">${itemsHtml}</div></section>`;
 }
 
-// +++ LAYOUT CORRIGIDO: HTML final ultra compacto
 function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
-  // Header conciso com cores ajustadas para fundo verde
   const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600;color:#1a1a1a">Encontrei a informação que responde à sua dúvida 👇</h1></header>`;
 
-  // Livro - seção principal
   const bookSection = `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>Livro (fonte principal)</span><div style="position:relative;padding:12px 14px;border-left:3px solid #38bdf8;background:rgba(56,189,248,0.06);border-radius:6px;line-height:1.5;margin-top:10px"><div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div><small style="display:block;color:#94a3b8;margin-top:6px;font-size:11px">Trechos do livro-base do curso.</small></div></section>`;
 
-  // Separar e renderizar itens
   const freeItems = (dictItems || []).filter(x => !x.pago);
   const premiumItems = (dictItems || []).filter(x => x.pago);
   
@@ -345,7 +350,7 @@ function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
   return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${content}</div>`;
 }
 
-// Adicionado: recomendação a partir do dicionário (retorna apenas os itens selecionados)
+// Recomendação do dicionário
 async function recommendFromDictionary(req, question) {
   try {
     const baseUrl = buildBaseUrl(req);
@@ -357,12 +362,10 @@ async function recommendFromDictionary(req, question) {
     logSection("Dicionário - total carregado");
     logObj("count", dictItems.length);
 
-    // pré-filtro lexical
     const candidates = pickTopDictCandidates(dictItems, question, DICT_MAX_CANDIDATES);
     logSection("Dicionário - candidatos enviados ao modelo");
     logObj("candidates_count", candidates.length);
 
-    // payload enxuto para o modelo
     const slim = candidates.map(it => ({
       id: it.id,
       titulo: it.titulo,
@@ -435,12 +438,128 @@ ${JSON.stringify(slim, null, 2)}
   }
 }
 
-// Para ambientes Next.js / Vercel: aumentar limite do body para áudio base64
+// +++ NOVA FUNÇÃO: Re-ranking via GPT +++
+async function rerankPagesWithGPT(rankedPages, question, pageMap, qTokens) {
+  try {
+    if (!HYBRID_SEARCH.USE_GPT_RERANKING || rankedPages.length === 0) {
+      return rankedPages.slice(0, 5).map(r => r.pagina);
+    }
+
+    logSection("Stage 3.5: Re-ranking via GPT");
+    
+    // Pega as top N páginas para revisar
+    const topCandidates = rankedPages.slice(0, Math.min(HYBRID_SEARCH.RERANK_TOP_N, rankedPages.length));
+    
+    // Prepara o contexto com trechos resumidos de cada página
+    const pagesForReview = topCandidates.map(r => {
+      const texto = pageMap.get(r.pagina) || "";
+      // Pega um trecho representativo (primeiras 500 chars)
+      const preview = texto.slice(0, 500).trim();
+      
+      return {
+        pagina: r.pagina,
+        preview: preview,
+        hasLiteralMatch: r.hasLiteralMatch,
+        hasPhraseMatch: r.hasPhraseMatch,
+        inSummary: r.inSummary,
+        lexScore: r.lexScore,
+        embScore: r.embScore.toFixed(3)
+      };
+    });
+
+    const systemPrompt = `
+Você é um especialista em análise de relevância textual. Sua tarefa é revisar páginas candidatas e identificar as mais relevantes para responder a pergunta do usuário.
+
+Critérios de priorização (em ordem de importância):
+1. Páginas que contêm EXPLICITAMENTE os termos exatos da pergunta
+2. Páginas que respondem diretamente à pergunta
+3. Páginas com alta densidade de palavras-chave relevantes
+4. Páginas que fornecem contexto essencial
+
+Analise cada página e selecione as ${HYBRID_SEARCH.RERANK_SELECT_N} mais relevantes.
+
+Responda APENAS em JSON no formato:
+{
+  "selectedPages": [pagina1, pagina2, ...],
+  "reasoning": "breve explicação da seleção"
+}
+`.trim();
+
+    const userPrompt = `
+Pergunta do usuário: """${question}"""
+Palavras-chave identificadas: [${qTokens.join(", ")}]
+
+Páginas candidatas para revisão:
+${JSON.stringify(pagesForReview, null, 2)}
+
+Selecione as ${HYBRID_SEARCH.RERANK_SELECT_N} páginas mais relevantes que contêm informações EXPLÍCITAS para responder a pergunta.
+Priorize páginas que contêm os termos literais da pergunta.
+`.trim();
+
+    const rerankReq = {
+      model: CHAT_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0,
+      top_p: 1,
+      max_tokens: 300,
+      seed: seedFromString(question + "|rerank")
+    };
+
+    logOpenAIRequest("chat.completions.create [rerank]", rerankReq);
+    const t0 = Date.now();
+    const resp = await openai.chat.completions.create(rerankReq);
+    const ms = Date.now() - t0;
+    logOpenAIResponse("chat.completions.create [rerank]", resp, { duration_ms: ms });
+
+    const responseContent = resp.choices?.[0]?.message?.content?.trim() || "{}";
+    
+    try {
+      const parsed = JSON.parse(responseContent);
+      const selectedPages = parsed.selectedPages || [];
+      const reasoning = parsed.reasoning || "";
+      
+      logObj("gpt_selected_pages", selectedPages);
+      logObj("gpt_reasoning", reasoning);
+      
+      if (selectedPages.length > 0) {
+        // Garante que as páginas selecionadas existem
+        const validPages = selectedPages.filter(p => pageMap.has(p));
+        
+        if (validPages.length > 0) {
+          // Adiciona páginas não selecionadas mas importantes do ranking original
+          const remainingPages = rankedPages
+            .slice(0, 5)
+            .map(r => r.pagina)
+            .filter(p => !validPages.includes(p));
+          
+          // Retorna páginas GPT-selecionadas primeiro, depois as do ranking original
+          return [...validPages, ...remainingPages].slice(0, 5);
+        }
+      }
+    } catch (e) {
+      logObj("rerank_parse_error", String(e));
+    }
+    
+    // Fallback: retorna top 5 do ranking original
+    return rankedPages.slice(0, 5).map(r => r.pagina);
+    
+  } catch (e) {
+    logSection("Re-ranking GPT - erro");
+    logObj("error", String(e));
+    // Em caso de erro, retorna o ranking original
+    return rankedPages.slice(0, 5).map(r => r.pagina);
+  }
+}
+
+// Config para Next.js/Vercel
 export const config = {
   api: { bodyParser: { sizeLimit: "25mb" } }
 };
 
-// Adicionado: transcrição de áudio base64 com gpt-4o-mini-transcribe
+// Transcrição de áudio
 async function transcribeBase64AudioToText(audioStr, mime = "audio/webm") {
   try {
     logSection("Transcrição de áudio");
@@ -473,17 +592,16 @@ async function transcribeBase64AudioToText(audioStr, mime = "audio/webm") {
   }
 }
 
-// ---------- Função principal ----------
+// ========================================================
+// 🔍 FUNÇÃO PRINCIPAL COM BUSCA HÍBRIDA 2-STAGE
+// ========================================================
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  // Sempre habilitar logs para expor toda a interação
-  // const forceDebug = /^(1|true|yes|on)$/i.test(String(req.query?.debug ?? req.body?.debug ?? ""));
   als.enterWith({ logs: [], enabled: true });
   const getLogs = () => (als.getStore()?.logs || []);
 
   try {
-    // Novo: aceitar pergunta por voz (base64/data URL)
     const { question: questionRaw, audio, audio_mime } = req.body || {};
     let question = String(questionRaw || "").trim();
     if (!question && audio) {
@@ -499,10 +617,7 @@ export default async function handler(req, res) {
       logObj("question", question);
     }
 
-    // 1️⃣ Remover geração de variações estocásticas (multi-query) para evitar flutuação
-    const variations = [question]; // consulta única e determinística
-
-    // 2️⃣ Carrega dados (inalterado)
+    // Carrega dados
     const [bookRaw, embRaw, sumRaw] = await Promise.all([
       fs.readFile(BOOK_PATH, "utf8"),
       fs.readFile(EMB_PATH, "utf8"),
@@ -513,17 +628,20 @@ export default async function handler(req, res) {
     const sumario = JSON.parse(sumRaw);
 
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
+    const embByPage = new Map(pageEmbeddings.map(pe => [pe.pagina, pe.embedding]));
 
-    // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
-    const pagesFromSummary = (typeof searchSummary === "function")
-      ? searchSummary(sumario, question)
-      : [];
+    // ========================================================
+    // 🔍 STAGE 1: BUSCA NO SUMÁRIO
+    // ========================================================
+    const pagesFromSummary = searchSummary(sumario, question);
     if (als.getStore()?.enabled) {
-      logSection("Páginas do sumário");
+      logSection("Stage 1: Busca no Sumário");
       logObj("pagesFromSummary", pagesFromSummary);
     }
 
-    // 4️⃣ Consulta de embedding única
+    // ========================================================
+    // 🔍 STAGE 2: EMBEDDING SEARCH
+    // ========================================================
     const embReq = { model: EMB_MODEL, input: question };
     logOpenAIRequest("embeddings.create", embReq);
     const tEmb0 = Date.now();
@@ -535,61 +653,118 @@ export default async function handler(req, res) {
     });
     const queryEmb = qEmbResp.data[0].embedding;
 
+    // Prepara tokens para busca lexical
     const qNorm = normalizeStr(question);
     const qTokens = Array.from(
-      new Set(qNorm.split(/\W+/).filter(t => t && t.length > 2))
+      new Set(qNorm.split(/\W+/).filter(t => t && t.length >= HYBRID_SEARCH.MIN_TERM_LENGTH))
     );
 
-    // 4.1️⃣ Define conjunto de candidatos:
-    // - Se achou páginas no sumário, restringe a elas e vizinhas (±2) para evitar desvio para seções distantes.
-    // - Caso contrário, considera todas as páginas.
-    const embByPage = new Map(pageEmbeddings.map(pe => [pe.pagina, pe.embedding]));
-    let candidatePages;
-    if (pagesFromSummary.length) {
-      const s = new Set();
-      for (const p of pagesFromSummary) {
-        s.add(p);
-        s.add(p - 2); s.add(p - 1); s.add(p + 1); s.add(p + 2);
-      }
-      candidatePages = Array.from(s).filter(p => pageMap.has(p) && embByPage.has(p));
-    } else {
-      candidatePages = pageEmbeddings.map(pe => pe.pagina).filter(p => pageMap.has(p));
-    }
     if (als.getStore()?.enabled) {
-      logSection("Candidatos (embedding)");
-      logObj("candidatePages_count", candidatePages.length);
+      logSection("Tokens de busca");
+      logObj("qTokens", qTokens);
     }
 
-    // Calcular scores por página (apenas nos candidatos)
-    let minEmb = Infinity, maxEmb = -Infinity, maxLex = 0;
+    // ========================================================
+    // 🔍 STAGE 3: LEXICAL RECALL OBRIGATÓRIO
+    // ========================================================
+    logSection("Stage 3: Lexical Recall");
+    
+    // Busca literal em TODAS as páginas
+    const literalMatches = new Set();
+    const phraseMatches = new Set();
+    
+    for (const [pagina, texto] of pageMap.entries()) {
+      if (!texto || !texto.trim()) continue;
+      
+      const textoNorm = normalizeStr(texto);
+      
+      // Verifica match da frase completa
+      if (hasPhraseMatch(texto, question)) {
+        phraseMatches.add(pagina);
+        literalMatches.add(pagina);
+        continue;
+      }
+      
+      // Verifica match de termos individuais
+      for (const token of qTokens) {
+        if (textoNorm.includes(token)) {
+          literalMatches.add(pagina);
+          break; // Uma vez que encontrou, não precisa verificar outros tokens
+        }
+      }
+    }
+
+    logObj("literalMatches", Array.from(literalMatches));
+    logObj("phraseMatches", Array.from(phraseMatches));
+    logObj("total_literal_pages", literalMatches.size);
+
+    // ========================================================
+    // 🔍 STAGE 4: MERGE E RANKING HÍBRIDO
+    // ========================================================
+    logSection("Stage 4: Merge e Ranking Híbrido");
+    
+    // Calcula scores de embedding para todas as páginas relevantes
+    const allRelevantPages = new Set([
+      ...pagesFromSummary,
+      ...literalMatches,
+      ...pageEmbeddings.map(pe => pe.pagina) // Inclui todas para garantir cobertura
+    ]);
+
     const prelim = [];
-    for (const pg of candidatePages) {
-      const peEmb = embByPage.get(pg);
-      if (!peEmb) continue;
+    let minEmb = Infinity, maxEmb = -Infinity, maxLex = 0;
+    
+    for (const pagina of allRelevantPages) {
+      const peEmb = embByPage.get(pagina);
+      if (!peEmb || !pageMap.has(pagina)) continue;
+      
+      // Score de embedding
       const embScore = cosineSim(queryEmb, peEmb);
-      const raw = pageMap.get(pg) || "";
-      const txt = normalizeStr(raw);
+      
+      // Score lexical (contagem de ocorrências)
+      const texto = pageMap.get(pagina) || "";
+      const textoNorm = normalizeStr(texto);
       let lexScore = 0;
-      for (const t of qTokens) lexScore += countOccurrences(txt, t);
+      for (const token of qTokens) {
+        lexScore += countOccurrences(textoNorm, token);
+      }
+      
       prelim.push({
-        pagina: pg,
+        pagina,
         embScore,
         lexScore,
-        inSummary: pagesFromSummary.includes(pg)
+        inSummary: pagesFromSummary.includes(pagina),
+        hasLiteralMatch: literalMatches.has(pagina),
+        hasPhraseMatch: phraseMatches.has(pagina)
       });
+      
       if (embScore < minEmb) minEmb = embScore;
       if (embScore > maxEmb) maxEmb = embScore;
       if (lexScore > maxLex) maxLex = lexScore;
     }
 
+    // Ranking com boost híbrido
     const ranked = prelim.map(r => {
-      const embNorm = (r.embScore - minEmb) / (Math.max(1e-8, maxEmb - minEmb));
+      const embNorm = (maxEmb - minEmb) > 1e-8 
+        ? (r.embScore - minEmb) / (maxEmb - minEmb)
+        : 0;
       const lexNorm = maxLex > 0 ? r.lexScore / maxLex : 0;
 
-      // Se temos páginas do sumário, aumentamos fortemente o peso delas
-      const summaryBoost = r.inSummary ? (pagesFromSummary.length ? 0.5 : 0.08) : 0;
+      // Boosts baseados em diferentes sinais
+      const summaryBoost = r.inSummary 
+        ? (pagesFromSummary.length ? HYBRID_SEARCH.SUMMARY_BOOST_WITH_MATCHES : HYBRID_SEARCH.SUMMARY_BOOST_DEFAULT)
+        : 0;
+      
+      const literalBoost = r.hasLiteralMatch ? HYBRID_SEARCH.LITERAL_BOOST : 0;
+      const phraseBoost = r.hasPhraseMatch ? HYBRID_SEARCH.PHRASE_MATCH_BOOST : 0;
 
-      const finalScore = 0.7 * embNorm + 0.3 * lexNorm + summaryBoost;
+      // Score final com pesos ajustados
+      const finalScore = 
+        0.4 * embNorm +           // Reduzido de 0.7 para dar mais peso ao lexical
+        0.3 * lexNorm + 
+        summaryBoost + 
+        literalBoost +
+        phraseBoost;
+
       return { ...r, embNorm, lexNorm, finalScore };
     }).sort((a, b) => {
       if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
@@ -605,24 +780,66 @@ export default async function handler(req, res) {
       });
     }
 
-    if (als.getStore()?.enabled && ranked.length) {
-      const top = ranked[0];
-      logSection("Ranqueamento - Top 1");
-      logObj("pagina_topo", {
-        pagina: top.pagina,
-        embScore: top.embScore,
-        lexScore: top.lexScore,
-        embNorm: top.embNorm,
-        lexNorm: top.lexNorm,
-        finalScore: top.finalScore,
-        inSummary: top.inSummary
-      });
+    if (als.getStore()?.enabled) {
+      logSection("Top 10 páginas ranqueadas (para revisão GPT)");
+      const top10 = ranked.slice(0, 10);
+      logObj("top10", top10.map(r => ({
+        pagina: r.pagina,
+        finalScore: r.finalScore.toFixed(3),
+        embScore: r.embScore.toFixed(3),
+        lexScore: r.lexScore,
+        hasLiteralMatch: r.hasLiteralMatch,
+        hasPhraseMatch: r.hasPhraseMatch,
+        inSummary: r.inSummary
+      })));
     }
 
-    // 5️⃣ Seleciona até 2 páginas principais
-    const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
+    // ========================================================
+    // 🔍 STAGE 5: SELEÇÃO E EXPANSÃO DE CONTEXTO
+    // ========================================================
     
-    // +++ NOVO: Expande com páginas adjacentes +++
+    // +++ NOVO: Re-ranking via GPT (Stage 3.5 opcional) +++
+    let selectedPages = [];
+    
+    if (HYBRID_SEARCH.USE_GPT_RERANKING) {
+      // Usa GPT para revisar e selecionar as melhores páginas
+      const gptSelectedPages = await rerankPagesWithGPT(ranked, question, pageMap, qTokens);
+      selectedPages = gptSelectedPages;
+      
+      if (als.getStore()?.enabled) {
+        logSection("Páginas selecionadas após GPT re-ranking");
+        logObj("gpt_selected", selectedPages);
+      }
+    } else {
+      // Fallback: seleção original baseada em prioridades
+      const maxPages = 3;
+      
+      // Primeiro adiciona páginas com phrase match
+      for (const r of ranked) {
+        if (r.hasPhraseMatch && selectedPages.length < maxPages) {
+          selectedPages.push(r.pagina);
+        }
+      }
+      
+      // Depois adiciona páginas com literal match
+      for (const r of ranked) {
+        if (r.hasLiteralMatch && !selectedPages.includes(r.pagina) && selectedPages.length < maxPages) {
+          selectedPages.push(r.pagina);
+        }
+      }
+      
+      // Por fim, completa com top ranked se necessário
+      for (const r of ranked) {
+        if (!selectedPages.includes(r.pagina) && selectedPages.length < maxPages) {
+          selectedPages.push(r.pagina);
+        }
+      }
+    }
+    
+    // Ordena as páginas selecionadas
+    selectedPages.sort((a, b) => a - b);
+    
+    // Expande com páginas adjacentes se configurado
     let finalPages;
     if (EXPAND_CONTEXT) {
       finalPages = expandWithAdjacentPages(selectedPages, pageMap, ADJACENT_RANGE);
@@ -637,7 +854,6 @@ export default async function handler(req, res) {
       finalPages = selectedPages;
     }
     
-    // Filtra páginas não vazias
     const nonEmptyPages = finalPages.filter(p => (pageMap.get(p) || "").trim());
     
     if (!nonEmptyPages.length) {
@@ -655,18 +871,13 @@ export default async function handler(req, res) {
       logObj("total_pages", nonEmptyPages.length);
     }
 
-    // 6️⃣ Monta o contexto com todas as páginas (incluindo adjacentes)
+    // ========================================================
+    // 🔍 STAGE 6: GERAÇÃO DA RESPOSTA
+    // ========================================================
     const contextText = nonEmptyPages.map(p =>
       `--- Página ${p} ---\n${(pageMap.get(p) || "").trim()}\n`
     ).join("\n");
     
-    if (als.getStore()?.enabled) {
-      logSection("Contexto bruto");
-      logObj("contextText_length", contextText.length);
-      logObj("contextText_trunc", truncate(contextText, 1000));
-    }
-
-    // 7️⃣ Prompt atualizado para lidar com múltiplas páginas
     const systemInstruction = `
 Você é um assistente que responde exclusivamente com trechos literais de um livro-base.
 
@@ -677,6 +888,7 @@ Regras obrigatórias:
 - Identifique cada trecho com o número da página (ex: "- Página 694: \"trecho...\"").
 - NÃO adicione frases introdutórias, comentários ou resumos.
 - Se houver mais de um trecho relevante, liste-os em ordem crescente de página.
+- Priorize trechos que contenham as palavras-chave da pergunta.
 - Se não houver trechos claramente relevantes, responda apenas "Nenhum trecho encontrado no livro.".
 
 Formato final da resposta:
@@ -692,9 +904,9 @@ Trechos disponíveis do livro (cada um contém número da página):
 ${finalPages.map(p => `Página ${p}:\n${pageMap.get(p)}`).join("\n\n")}
 
 Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diretamente à pergunta.
+Priorize trechos que contenham as palavras-chave: ${qTokens.join(", ")}
 `.trim();
 
-    // 8️⃣ Geração determinística
     const chatReq = {
       model: CHAT_MODEL,
       messages: [
@@ -709,6 +921,7 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
       max_tokens: 900,
       seed: seedFromString(question)
     };
+    
     logOpenAIRequest("chat.completions.create", chatReq);
     const tChat0 = Date.now();
     const chatResp = await openai.chat.completions.create(chatReq);
@@ -725,18 +938,17 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
         answer, 
         used_pages: nonEmptyPages,
         original_selection: selectedPages,
-        expanded_context: EXPAND_CONTEXT
+        expanded_context: EXPAND_CONTEXT,
+        hybrid_search: true
       });
     }
 
-    // +++ Novo: etapa de recomendação do dicionário e concatenação da resposta +++
+    // Recomendação do dicionário
     const dictRec = await recommendFromDictionary(req, question);
 
-    // Ajuste: detectar páginas realmente citadas na resposta para montar o template (se necessário futuramente)
     const notFound = answer === "Não encontrei conteúdo no livro.";
     const citedPages = extractCitedPages(answer);
 
-    // Novo: renderização no template (ou similar)
     const finalAnswer = notFound
       ? answer
       : renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
@@ -746,6 +958,10 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
       used_pages: nonEmptyPages,
       original_pages: selectedPages,
       expanded_context: EXPAND_CONTEXT,
+      hybrid_search: true,
+      gpt_reranking: HYBRID_SEARCH.USE_GPT_RERANKING,
+      literal_matches: Array.from(literalMatches),
+      phrase_matches: Array.from(phraseMatches),
       question_used: question,
       logs: getLogs()
     });
