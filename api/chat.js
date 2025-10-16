@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import fs from "fs/promises";
 import path from "path";
 import { AsyncLocalStorage } from "async_hooks";
+import { toFile } from "openai/uploads";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -401,6 +402,37 @@ ${JSON.stringify(slim, null, 2)}
   }
 }
 
+// Adicionado: transcrição de áudio base64 com gpt-4o-mini-transcribe
+async function transcribeBase64AudioToText(audioStr, mime = "audio/webm") {
+  try {
+    logSection("Transcrição de áudio");
+    const clean = String(audioStr || "").replace(/^data:.*;base64,/, "");
+    const buf = Buffer.from(clean, "base64");
+    const ext = mime.includes("mpeg") ? "mp3"
+      : mime.includes("wav") ? "wav"
+      : mime.includes("ogg") ? "ogg"
+      : mime.includes("m4a") ? "m4a"
+      : "webm";
+    const filename = `audio.${ext}`;
+    const file = await toFile(buf, filename, { type: mime });
+    const t0 = Date.now();
+    const resp = await openai.audio.transcriptions.create({
+      model: "gpt-4o-mini-transcribe",
+      file,
+      language: "pt" // ajuda a estabilizar para PT-BR
+    });
+    const ms = Date.now() - t0;
+    logObj("transcription_ms", ms);
+    const text = (resp && (resp.text || resp.transcript || resp?.results?.[0]?.transcript)) || "";
+    logObj("transcription_preview", truncate(text, 200));
+    return text.trim();
+  } catch (e) {
+    logSection("Transcrição de áudio - erro");
+    logObj("error", String(e));
+    return "";
+  }
+}
+
 // ---------- Função principal ----------
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
@@ -411,7 +443,13 @@ export default async function handler(req, res) {
   const getLogs = () => (als.getStore()?.logs || []);
 
   try {
-    const { question } = req.body;
+    // Novo: aceitar pergunta por voz (base64/data URL)
+    const { question: questionRaw, audio, audio_mime } = req.body || {};
+    let question = String(questionRaw || "").trim();
+    if (!question && audio) {
+      logSection("Entrada de áudio detectada");
+      question = await transcribeBase64AudioToText(audio, audio_mime || "audio/webm");
+    }
     if (!question || !question.trim())
       return res.status(400).json({ error: "Pergunta vazia", logs: getLogs() });
 

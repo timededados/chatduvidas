@@ -18,6 +18,7 @@ import cors from "cors";
 import fs from "fs/promises";
 import path from "path";
 import OpenAI from "openai";
+import { toFile } from "openai/uploads";
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -39,6 +40,31 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
+
+// Utilitário: transcrever áudio base64 para texto (gpt-4o-mini-transcribe)
+async function transcribeBase64AudioToText(audioStr, mime = "audio/webm", openaiClient) {
+  try {
+    const clean = String(audioStr || "").replace(/^data:.*;base64,/, "");
+    const buf = Buffer.from(clean, "base64");
+    const ext = mime.includes("mpeg") ? "mp3"
+      : mime.includes("wav") ? "wav"
+      : mime.includes("ogg") ? "ogg"
+      : mime.includes("m4a") ? "m4a"
+      : "webm";
+    const filename = `audio.${ext}`;
+    const file = await toFile(buf, filename, { type: mime });
+    const resp = await openaiClient.audio.transcriptions.create({
+      model: "gpt-4o-mini-transcribe",
+      file,
+      language: "pt"
+    });
+    const text = (resp && (resp.text || resp.transcript || resp?.results?.[0]?.transcript)) || "";
+    return text.trim();
+  } catch (e) {
+    console.error("Falha ao transcrever áudio:", e);
+    return "";
+  }
+}
 
 // Adicionado: utilitários para dicionário
 async function ensureDataDir() {
@@ -150,7 +176,12 @@ app.delete("/api/dict/:id", async (req, res) => {
 // endpoint principal do chat
 app.post("/api/chat", async (req, res) => {
   try {
-    const { question } = req.body;
+    // Novo: aceitar pergunta por voz (base64/data URL)
+    const { question: questionRaw, audio, audio_mime } = req.body || {};
+    let question = String(questionRaw || "").trim();
+    if (!question && audio) {
+      question = await transcribeBase64AudioToText(audio, audio_mime || "audio/webm", openai);
+    }
     if (!question || !question.trim()) return res.status(400).json({ error: "Pergunta vazia" });
 
     // 1) Primeiro peça ao modelo variações da pergunta para melhorar busca (few-shot)
