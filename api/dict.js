@@ -112,7 +112,7 @@ export default async function handler(req, res) {
     if (isWrite && usingAnon) {
       return res.status(403).json({
         error:
-          "RLS: configure SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_ROLE) nas variáveis do servidor."
+          "RLS bloqueou a operação. Configure SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_ROLE) como variável de ambiente do servidor e faça o deploy novamente. Em Vercel: Project > Settings > Environment Variables > Add SUPABASE_SERVICE_ROLE_KEY com o valor do 'service_role' (Supabase > Project Settings > API). Nunca exponha essa chave no cliente."
       });
     }
 
@@ -288,7 +288,8 @@ export default async function handler(req, res) {
     const msg = String(e?.message || e);
     if (/row-level security/i.test(msg) || /violates row-level security/i.test(msg)) {
       return res.status(403).json({
-        error: "RLS: verifique as policies ou configure SUPABASE_SERVICE_ROLE_KEY no servidor."
+        error:
+          "RLS bloqueou a operação. Configure SUPABASE_SERVICE_ROLE_KEY (server-only) ou crie policies permissivas para a tabela 'dictionary' e o bucket 'dictionary-images'."
       });
     }
     return res.status(500).json({ error: msg });
