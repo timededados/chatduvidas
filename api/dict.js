@@ -7,12 +7,16 @@ const DICT_PATH = path.join(DATA_DIR, "dictionary.json");
 const BUCKET_NAME = "dictionary-images"; // bucket público para imagens
 
 // Use a service role key on the server to bypass RLS; fallback to anon if missing.
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_ANON_KEY;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE ||
+  process.env.SUPABASE_ANON_KEY;
+
 if (!process.env.SUPABASE_URL) {
   console.warn("SUPABASE_URL não definido");
 }
 if (!supabaseKey) {
-  console.warn("Nenhuma SUPABASE key definida (SERVICE_ROLE/ANON)");
+  console.warn("Nenhuma SUPABASE key definida (SERVICE_ROLE_KEY/SERVICE_ROLE/ANON)");
 }
 const supabase = createClient(process.env.SUPABASE_URL, supabaseKey);
 
@@ -98,6 +102,20 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   try {
+    // Falha rápida para operações de escrita quando só há ANON key
+    const isWrite = method === "POST" || method === "PUT" || method === "DELETE";
+    const usingAnon =
+      !!process.env.SUPABASE_ANON_KEY &&
+      supabaseKey === process.env.SUPABASE_ANON_KEY &&
+      !(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE);
+
+    if (isWrite && usingAnon) {
+      return res.status(403).json({
+        error:
+          "RLS: configure SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_ROLE) nas variáveis do servidor."
+      });
+    }
+
     // GET /api/dict - lista todos
     if (method === "GET" && !id) {
       const { data, error } = await supabase
@@ -269,7 +287,9 @@ export default async function handler(req, res) {
     console.error("Erro em /api/dict:", e);
     const msg = String(e?.message || e);
     if (/row-level security/i.test(msg) || /violates row-level security/i.test(msg)) {
-      return res.status(403).json({ error: "RLS: verifique as policies ou configure SUPABASE_SERVICE_ROLE no servidor." });
+      return res.status(403).json({
+        error: "RLS: verifique as policies ou configure SUPABASE_SERVICE_ROLE_KEY no servidor."
+      });
     }
     return res.status(500).json({ error: msg });
   }
