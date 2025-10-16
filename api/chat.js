@@ -564,7 +564,12 @@ export default async function handler(req, res) {
     });
 
     if (!ranked.length) {
-      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
+      return res.json({
+        answer: "Não encontrei conteúdo no livro.",
+        used_pages: [],
+        question_used: question,
+        logs: getLogs()
+      });
     }
 
     if (als.getStore()?.enabled && ranked.length) {
@@ -585,7 +590,12 @@ export default async function handler(req, res) {
     const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
     const nonEmptyPages = selectedPages.filter(p => (pageMap.get(p) || "").trim());
     if (!nonEmptyPages.length) {
-      return res.json({ answer: "Não encontrei conteúdo no livro.", used_pages: [], logs: getLogs() });
+      return res.json({
+        answer: "Não encontrei conteúdo no livro.",
+        used_pages: [],
+        question_used: question,
+        logs: getLogs()
+      });
     }
     if (als.getStore()?.enabled) {
       logSection("Páginas selecionadas para contexto");
@@ -675,6 +685,7 @@ Instruções de resposta:
     return res.status(200).json({
       answer: finalAnswer,
       used_pages: nonEmptyPages,
+      question_used: question,
       logs: getLogs()
     });
 

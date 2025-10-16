@@ -339,6 +339,7 @@
       msg.appendChild(bubble);
       chat.appendChild(msg);
       chat.scrollTop = chat.scrollHeight;
+      return msg; // <- retorna o nó criado
     }
 
     async function sendQuestion() {
@@ -485,7 +486,7 @@
     }
 
     async function sendAudio(blob) {
-      append("user", "🎙️ Mensagem de voz");
+      const voiceMsg = append("user", "🎙️ Mensagem de voz"); // <- guarda referência
       append("bot", '<span class="typing">⏳ Buscando informação...</span>');
       try {
         const dataUrl = await new Promise((resolve, reject) => {
@@ -501,6 +502,13 @@
         });
         const data = await resp.json();
         chat.lastChild.remove(); // remove "Buscando..."
+
+        // Atualiza a bolha do usuário com o texto transcrito (se disponível)
+        if (data.question_used && voiceMsg) {
+          const bubble = voiceMsg.querySelector(".bubble");
+          if (bubble) bubble.innerHTML = String(data.question_used).replace(/\n/g, "<br>");
+        }
+
         if (data.error) {
           append("bot", "⚠️ Erro: " + data.error);
         } else {

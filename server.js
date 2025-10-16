@@ -271,7 +271,7 @@ Se já está ótima, devolva ao menos a pergunta original como primeira variaç�
 
     // If no meaningful content found -> reply negative
     if (!contextText.trim()) {
-      return res.json({ answer: "Não encontrei conteúdo no livro." });
+      return res.json({ answer: "Não encontrei conteúdo no livro.", question_used: question });
     }
 
     // 5) Pergunta final ao modelo pedindo resposta estrita somente com o conteúdo.
@@ -301,7 +301,11 @@ Responda em português.
     });
 
     const answer = chatResp.choices?.[0]?.message?.content?.trim() || "Não encontrei conteúdo no livro.";
-    return res.json({ answer, used_pages: selected.map(s => ({ pagina: s.pagina, score: s.score })) });
+    return res.json({
+      answer,
+      used_pages: selected.map(s => ({ pagina: s.pagina, score: s.score })),
+      question_used: question
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: String(err) });
