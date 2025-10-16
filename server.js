@@ -39,79 +39,6 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
-app.use(express.static("public"));
-
-// util: cosine similarity
-function dot(a, b) {
-  let s = 0;
-  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
-  return s;
-}
-function norm(a) {
-  let s = 0;
-  for (let i = 0; i < a.length; i++) s += a[i] * a[i];
-  return Math.sqrt(s);
-}
-function cosineSim(a, b) {
-  return dot(a, b) / (norm(a) * norm(b) + 1e-8);
-}
-
-// carrega livro JSON
-async function loadBook() {
-  const raw = await fs.readFile(BOOK_PATH, "utf8");
-  const pages = JSON.parse(raw);
-  // espera array de objetos {pagina: number, texto: string}
-  return pages;
-}
-
-// carrega embeddings (se existir). formato esperado: [{pagina: num, embedding: [num,...]}]
-async function loadEmbeddings() {
-  try {
-    const raw = await fs.readFile(EMB_PATH, "utf8");
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) throw new Error("embeddings inválidos");
-    return arr;
-  } catch (err) {
-    console.warn("Embeddings não encontrados em", EMB_PATH, "- serão gerados sob demanda.");
-    return null;
-  }
-}
-
-// gera embeddings para cada página (cuidado com custo). Retorna array [{pagina, embedding}]
-async function generateEmbeddingsForPages(pages) {
-  console.log("Gerando embeddings para", pages.length, "páginas (pode demorar e custar chamadas)...");
-  const results = [];
-  // geramos em batches simples (não otimizado)
-  for (const p of pages) {
-    const text = (p.texto || "").slice(0, 2000); // truncar texto muito grande para embedding
-    const resp = await openai.embeddings.create({
-      model: EMB_MODEL,
-      input: text || " " // não enviar vazio
-    });
-    const embedding = resp.data[0].embedding;
-    results.push({ pagina: p.pagina, embedding });
-  }
-  // salva para reuso
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(EMB_PATH, JSON.stringify(results), "utf8");
-  console.log("Embeddings gerados e salvos em", EMB_PATH);
-  return results;
-}
-
-// busca: recebe query embedding, retorna top K páginas (objetos {pagina, texto, score})
-async function semanticSearch(queryEmbedding, pageEmbeddings, pages, topK = TOP_K) {
-  const scores = pageEmbeddings.map(pe => {
-    return {
-      pagina: pe.pagina,
-      score: cosineSim(queryEmbedding, pe.embedding)
-    };
-  });
-  scores.sort((a, b) => b.score - a.score);
-  const top = scores.slice(0, topK);
-  // map to page text
-  const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
-  return top.map(t => ({ pagina: t.pagina, texto: pageMap.get(t.pagina) || "", score: t.score }));
-}
 
 // Adicionado: utilitários para dicionário
 async function ensureDataDir() {
@@ -155,7 +82,7 @@ function validateEntry(input) {
   return { ok: true, value: { titulo, autor, tipoConteudo, pago, link, tags } };
 }
 
-// Adicionado: endpoints CRUD do dicionário
+// Adicionado: endpoints CRUD do dicionário (ANTES do express.static)
 app.get("/api/dict", async (req, res) => {
   try {
     const items = await loadDictionary();
@@ -218,11 +145,6 @@ app.delete("/api/dict/:id", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
-});
-
-// Adicionado: fallback JSON para /api (evita HTML em erros)
-app.use("/api", (req, res) => {
-  res.status(404).json({ error: `Rota não encontrada: ${req.method} ${req.originalUrl}` });
 });
 
 // endpoint principal do chat
@@ -347,6 +269,14 @@ Responda em português.
     console.error(err);
     return res.status(500).json({ error: String(err) });
   }
+});
+
+// IMPORTANTE: express.static deve vir DEPOIS das rotas da API
+app.use(express.static("public"));
+
+// Adicionado: fallback JSON para /api (evita HTML em erros)
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: `Rota não encontrada: ${req.method} ${req.originalUrl}` });
 });
 
 app.listen(PORT, () => console.log(`Server rodando em http://localhost:${PORT}`));
