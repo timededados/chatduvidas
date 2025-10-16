@@ -248,115 +248,100 @@ function escapeAttr(s) {
   return String(s).replace(/"/g, "&quot;");
 }
 
-// Atualizado: incluir botão "Clique aqui" e imagem (quando houver) — sem exibir Tags
-function formatDictRecommendations(selected) {
-  if (!selected.length) return "";
-  const lines = selected.map(it => {
-    const tipo = it.tipoConteudo || it.tipo_conteudo || "";
-    const titulo = escapeHtml(it.titulo || "");
-    const autor = it.autor ? ` — ${escapeHtml(it.autor)}` : "";
-    const tipoStr = tipo ? ` (${escapeHtml(tipo)})` : "";
-    const linkBtn = it.link
-      ? ` <a href="${escapeAttr(it.link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-left:8px;padding:6px 10px;background:#4f8cff;color:#fff;border-radius:8px;text-decoration:none;">Clique aqui</a>`
-      : "";
-    const img = it.imagemUrl
-      ? `<br><img src="${escapeAttr(it.imagemUrl)}" alt="Imagem do item" style="max-width:240px;max-height:160px;border-radius:8px;margin-top:6px;border:1px solid rgba(255,255,255,0.15);" />`
-      : "";
-    return `• ${titulo}${tipoStr}${autor}${linkBtn}${img}`;
-  });
-  // Título alterado para "Conteúdo complementar:"
-  return ["<strong>Conteúdo complementar:</strong>", ...lines].join("\n");
+// +++ Novo: mapeia tipo de conteúdo -> rótulo e estilo do botão
+function buttonForType(tipoRaw, isPremium) {
+  const tipo = String(tipoRaw || "").toLowerCase();
+  if (tipo.includes("podteme")) return { label: "🎧 Ouvir episódio", kind: "primary" };
+  if (tipo.includes("preparatório teme") || tipo.includes("preparatorio teme")) return { label: "▶️ Assistir aula", kind: "accent" };
+  if (tipo.includes("instagram")) return { label: "📱 Ver post", kind: "primary" };
+  if (tipo.includes("blog")) return { label: "📰 Ler artigo", kind: "primary" };
+  if (tipo.includes("curso")) return { label: isPremium ? "💎 Conhecer o curso" : "▶️ Acessar curso", kind: isPremium ? "premium" : "accent" };
+  return { label: "🔗 Acessar conteúdo", kind: isPremium ? "premium" : "primary" };
 }
 
-async function recommendFromDictionary(req, question) {
-  try {
-    const baseUrl = buildBaseUrl(req);
-    const res = await fetch(`${baseUrl}/api/dict`);
-    if (!res.ok) throw new Error(`GET /api/dict falhou: ${res.status}`);
-    const dictItems = await res.json();
-    if (!Array.isArray(dictItems) || dictItems.length === 0) return { lines: [], raw: [] };
+// +++ Novo: estilos inline simples para botões (compatível com o chat)
+function btnStyle(kind) {
+  const base = "display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600;border:1px solid;";
+  if (kind === "accent") return `${base}background:linear-gradient(180deg,rgba(56,189,248,.15),rgba(56,189,248,.05));border-color:rgba(56,189,248,.35);color:#e5e7eb;`;
+  if (kind === "premium") return `${base}background:linear-gradient(180deg,rgba(245,158,11,.18),rgba(245,158,11,.06));border-color:rgba(245,158,11,.35);color:#e5e7eb;`;
+  return `${base}background:linear-gradient(180deg,rgba(34,197,94,.15),rgba(34,197,94,.05));border-color:rgba(34,197,94,.35);color:#e5e7eb;`;
+}
 
-    logSection("Dicionário - total carregado");
-    logObj("count", dictItems.length);
+// +++ Novo: renderiza lista de itens do dicionário como cards
+function renderDictItemsList(items, isPremiumSection) {
+  if (!items.length) return "";
+  const itemHtml = items.map(it => {
+    const titulo = escapeHtml(it.titulo || "");
+    const autor = it.autor ? ` — <span style="color:#94a3b8">${escapeHtml(it.autor)}</span>` : "";
+    const tipo = it.tipoConteudo || it.tipo_conteudo || "";
+    const { label, kind } = buttonForType(tipo, !!it.pago);
+    const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank" rel="noopener noreferrer"` : "";
+    const btn = it.link ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
+    const img = it.imagemUrl
+      ? `<div style="margin-top:8px"><img src="${escapeAttr(it.imagemUrl)}" alt="Imagem do item" style="max-width:240px;max-height:160px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);" /></div>`
+      : "";
+    return `
+      <div style="display:grid;gap:6px;padding:12px;border:1px solid #1f2937;border-radius:12px;background:rgba(255,255,255,.02);">
+        <div><strong>${titulo}</strong>${autor}</div>
+        ${btn}
+        ${img}
+      </div>
+    `;
+  }).join("");
+  const labelDotColor = isPremiumSection ? "#f59e0b" : "#38bdf8";
+  const labelText = isPremiumSection ? "Conteúdo premium (opcional)" : "Conteúdo complementar (acesso incluído)";
+  return `
+    <section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);">
+      <span style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,.03);color:#cbd5e1;font-weight:600;font-size:12px;letter-spacing:.4px;text-transform:uppercase;">
+        <span style="width:8px;height:8px;border-radius:999px;background:${labelDotColor}"></span>${labelText}
+      </span>
+      <div style="display:grid;gap:10px;margin-top:10px">${itemHtml}</div>
+    </section>
+  `;
+}
 
-    // pré-filtro
-    const candidates = pickTopDictCandidates(dictItems, question, DICT_MAX_CANDIDATES);
-    logSection("Dicionário - candidatos enviados ao modelo");
-    logObj("candidates_count", candidates.length);
+// +++ Novo: monta o HTML final inspirado no template
+function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
+  const header = `
+    <header style="display:grid;gap:8px;margin-bottom:16px;">
+      <h1 style="font-size:20px;margin:0;font-weight:700;">Encontrei a informação que responde à sua dúvida 👇</h1>
+      <p style="color:#94a3b8;margin:0;">Primeiro o livro-base, depois material complementar (gratuito) e, por fim, um conteúdo premium opcional.</p>
+    </header>
+  `;
 
-    // Montar payload enxuto para o modelo (evitar campos grandes)
-    const slim = candidates.map(it => ({
-      id: it.id,
-      titulo: it.titulo,
-      autor: it.autor || "",
-      tipo: it.tipoConteudo || it.tipo_conteudo || "",
-      tags: Array.isArray(it.tags) ? it.tags : [],
-      link: it.link || ""
-    }));
+  // Livro (coloca a resposta do modelo dentro de uma "quote")
+  const libro = `
+    <section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);">
+      <span style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,.03);color:#cbd5e1;font-weight:600;font-size:12px;letter-spacing:.4px;text-transform:uppercase;">
+        <span style="width:8px;height:8px;border-radius:999px;background:#38bdf8"></span>Livro (fonte principal)
+      </span>
+      <div style="position:relative;padding:14px 16px;border-left:3px solid #38bdf8;background:rgba(56,189,248,.08);border-radius:8px;line-height:1.55;margin-top:10px;">
+        <div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div>
+        <small style="display:block;color:#94a3b8;margin-top:6px;">Trechos do livro-base do curso.</small>
+      </div>
+    </section>
+  `;
 
-    const system = `
-Você seleciona itens de um dicionário relevantes para a pergunta do usuário.
-Critérios:
-- Escolha no máximo ${DICT_MAX_RECOMMEND} itens bem relacionados ao tema da pergunta.
-- Prefira coincidências no título/tags/tipo.
-- Se nada for claramente relevante, retorne lista vazia.
-Responda EXCLUSIVAMENTE em JSON no formato:
-{"recommendedIds": ["id1","id2",...]}
-`.trim();
+  // Separar itens do dicionário entre gratuitos e premium
+  const freeItems = (dictItems || []).filter(x => !x.pago);
+  const premiumItems = (dictItems || []).filter(x => x.pago);
 
-    const user = `
-Pergunta: """${question}"""
+  const freeBlock = freeItems.length ? renderDictItemsList(freeItems, false) : "";
+  const premiumBlock = premiumItems.length ? renderDictItemsList(premiumItems, true) : "";
 
-Itens (JSON):
-${JSON.stringify(slim, null, 2)}
-`.trim();
+  // Empilhar seções
+  const stack = [libro, freeBlock, premiumBlock].filter(Boolean).join('<div style="height:14px"></div>');
 
-    const chatReq = {
-      model: CHAT_MODEL,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ],
-      temperature: 0,
-      top_p: 1,
-      max_tokens: 200,
-      seed: seedFromString(question + "|dict")
-    };
-    logOpenAIRequest("chat.completions.create [dict]", chatReq);
-    const t0 = Date.now();
-    const resp = await openai.chat.completions.create(chatReq);
-    const ms = Date.now() - t0;
-    logOpenAIResponse("chat.completions.create [dict]", resp, { duration_ms: ms });
-
-    const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
-    let ids = [];
-    try {
-      const m = raw.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(m ? m[0] : raw);
-      if (Array.isArray(parsed.recommendedIds)) ids = parsed.recommendedIds.slice(0, DICT_MAX_RECOMMEND);
-    } catch {
-      // fallback: nenhuma seleção estruturada
-      ids = [];
-    }
-
-    const selected = ids
-      .map(id => candidates.find(c => c.id === id))
-      .filter(Boolean)
-      .slice(0, DICT_MAX_RECOMMEND);
-
-    // fallback se modelo não retornou nada: pega top 3 do pré-filtro
-    const finalSel = selected.length ? selected : candidates.slice(0, Math.min(3, candidates.length));
-
-    logSection("Dicionário - selecionados");
-    logObj("ids", finalSel.map(x => x.id));
-
-    const text = formatDictRecommendations(finalSel);
-    return { text, raw: finalSel };
-  } catch (e) {
-    logSection("Dicionário - erro");
-    logObj("error", String(e));
-    return { text: "", raw: [] };
-  }
+  // Container com leve reset de cor de texto
+  return `
+    <div style="max-width:860px;">
+      ${header}
+      <div style="display:grid;gap:14px;">
+        ${stack}
+      </div>
+      <footer style="margin-top:16px;color:#94a3b8;font-size:12px;"></footer>
+    </div>
+  `;
 }
 
 // ---------- Função principal ----------
@@ -576,25 +561,14 @@ Instruções de resposta:
     // +++ Novo: etapa de recomendação do dicionário e concatenação da resposta +++
     const dictRec = await recommendFromDictionary(req, question);
 
-    // Ajuste: detectar páginas realmente citadas na resposta para montar o título
+    // Ajuste: detectar páginas realmente citadas na resposta para montar o template (se necessário futuramente)
     const notFound = answer === "Não encontrei conteúdo no livro.";
     const citedPages = extractCitedPages(answer);
-    let headerLine = "";
-    if (!notFound && citedPages.length > 0) {
-      if (citedPages.length === 1) {
-        // Singular: sem listar número(s)
-        headerLine = "<strong>A resposta para a informação solicitada se encontra na página:</strong>";
-      } else {
-        // Plural: listar as páginas
-        headerLine = `<strong>A resposta para a informação solicitada se encontra nas páginas:</strong>`;
-      }
-    }
 
-    const baseAnswer = headerLine ? `${headerLine}\n\n${answer}` : answer;
-
-    const finalAnswer = dictRec.text
-      ? `${baseAnswer}\n\n${dictRec.text}`
-      : baseAnswer;
+    // Novo: renderização no template (ou similar)
+    const finalAnswer = notFound
+      ? answer
+      : renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
 
     return res.status(200).json({
       answer: finalAnswer,

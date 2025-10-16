@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resposta do Chatbot — Exemplo</title>
+  <style>
+    :root {
+      --bg: #0f172a;          /* slate-900 */
+      --panel: #111827;       /* gray-900 */
+      --muted: #94a3b8;       /* slate-400 */
+      --primary: #22c55e;     /* green-500 */
+      --accent: #38bdf8;      /* sky-400 */
+      --premium: #f59e0b;     /* amber-500 */
+      --border: #1f2937;      /* gray-800 */
+      --card: #0b1220;        /* deep panel */
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px; font-family: ui-sans-serif, system-ui, -apple-system,
+      Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial; color: #e5e7eb; background: radial-gradient(1200px 600px at 20% -10%, #0b1530 0%, var(--bg) 60%);
+    }
+    .container { max-width: 860px; margin: 0 auto; }
+    header {
+      display: grid; gap: 8px; margin-bottom: 16px;
+    }
+    header h1 {
+      font-size: 20px; margin: 0; font-weight: 700;
+    }
+    header p { color: var(--muted); margin: 0; }
+
+    .card {
+      background: linear-gradient(180deg, var(--card), var(--panel));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    .stack { display: grid; gap: 14px; }
+
+    .label {
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,.03); color: #cbd5e1; font-weight: 600; font-size: 12px; letter-spacing: .4px; text-transform: uppercase;
+    }
+    .label .dot { width: 8px; height: 8px; border-radius: 999px; }
+    .label.book .dot { background: var(--accent); }
+    .label.free .dot { background: var(--primary); }
+    .label.premium .dot { background: var(--premium); }
+
+    .quote {
+      position: relative; padding: 14px 16px 14px 18px; border-left: 3px solid var(--accent); background: rgba(56,189,248,.08); border-radius: 8px; line-height: 1.55;
+    }
+    .quote small { display: block; color: var(--muted); margin-top: 6px; }
+
+    .list { display: grid; gap: 10px; margin-top: 6px; }
+    .item { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.02); }
+    .item strong { font-weight: 700; }
+    .meta { color: var(--muted); font-size: 14px; }
+
+    .cta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .btn { appearance: none; border: 1px solid var(--border); padding: 10px 14px; border-radius: 10px; background: #0b1220; color: #e5e7eb; cursor: pointer; font-weight: 600; text-decoration: none; transition: transform .08s ease, box-shadow .2s ease; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0,0,0,.35); }
+    .btn.primary { background: linear-gradient(180deg, rgba(34,197,94,.15), rgba(34,197,94,.05)); border-color: rgba(34,197,94,.35); }
+    .btn.accent { background: linear-gradient(180deg, rgba(56,189,248,.15), rgba(56,189,248,.05)); border-color: rgba(56,189,248,.35); }
+    .btn.premium { background: linear-gradient(180deg, rgba(245,158,11,.18), rgba(245,158,11,.06)); border-color: rgba(245,158,11,.35); }
+
+    footer { margin-top: 16px; color: var(--muted); font-size: 12px; }
+    .badges { display: flex; gap: 8px; margin-top: 8px; }
+    .chip { border: 1px dashed var(--border); border-radius: 999px; padding: 6px 10px; font-size: 12px; color: #cbd5e1; }
+
+    /* Responsive */
+    @media (max-width: 520px) { .btn { width: 100%; text-align: center; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Encontrei a informação que responde à sua dúvida 👇</h1>
+      <p>Primeiro o livro-base, depois material complementar (gratuito) e, por fim, um conteúdo premium opcional.</p>
+    </header>
+
+    <div class="stack">
+      <!-- 1) LIVRO -->
+      <section class="card">
+        <span class="label book"><span class="dot"></span>Livro (fonte principal)</span>
+        <div class="quote" style="margin-top:10px">
+          <p><strong>Página 575:</strong> “A máscara laríngea (ML) pode ser uma alternativa viável à intubação endotraqueal para tratamento intra-hospitalar ou extra-hospitalar de parada cardiorrespiratória, particularmente quando os socorristas forem inexperientes em manejo de vias aéreas.”</p>
+          <small>Trecho do livro-base do curso.</small>
+        </div>
+      </section>
+
+      <!-- 2) COMPLEMENTAR GRATUITO -->
+      <section class="card">
+        <span class="label free"><span class="dot"></span>Conteúdo complementar (acesso incluído)</span>
+        <div class="list">
+          <div class="item">
+            <div><strong>Manejo de Vias Aéreas (PodTEME)</strong> — Dr. Denis Colares</div>
+            <div class="cta-row">
+              <a class="btn primary" href="#">🎧 Ouvir episódio</a>
+            </div>
+            <div class="meta">Aprofunda indicações de ML vs IOT e erros frequentes no primeiro atendimento.</div>
+          </div>
+          <div class="item">
+            <div><strong>Revisão ILCOR 2024 (PodTEME)</strong> — Dr. Denis Colares</div>
+            <div class="cta-row">
+              <a class="btn primary" href="#">🎧 Ouvir episódio</a>
+            </div>
+            <div class="meta">Resumo das recomendações atuais para via aérea em PCR.</div>
+          </div>
+          <div class="item">
+            <div><strong>Via Aérea (Preparatório TEME)</strong> — Dra. Patrícia Lopes</div>
+            <div class="cta-row">
+              <a class="btn accent" href="#">▶️ Assistir aula</a>
+            </div>
+            <div class="meta">Estratégias de backup e seleção de dispositivos supraglóticos.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3) PREMIUM/PAGO -->
+      <section class="card">
+        <span class="label premium"><span class="dot"></span>Conteúdo premium (opcional)</span>
+        <div class="item" style="margin-top:8px">
+          <div><strong>VA 360 — Airway Experience</strong> <span class="meta">com Dra. Nicole Pinheiro e Dra. Patrícia Lopes</span></div>
+          <div class="meta">Curso prático com simulações, estudos de caso e checklists aplicáveis ao plantão.</div>
+          <div class="cta-row">
+            <a class="btn premium" href="#">💎 Conhecer o curso</a>
+          </div>
+          <div class="badges">
+            <span class="chip">Carga horária: 12h</span>
+            <span class="chip">Aulas on‑demand</span>
+            <span class="chip">Certificado</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      Dica: salve esta resposta para revisar depois ou compartilhe com sua equipe.
+    </footer>
+  </div>
+</body>
+</html>
