@@ -344,6 +344,96 @@ function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
   `;
 }
 
+// Adicionado: recomendação a partir do dicionário (retorna apenas os itens selecionados)
+async function recommendFromDictionary(req, question) {
+  try {
+    const baseUrl = buildBaseUrl(req);
+    const res = await fetch(`${baseUrl}/api/dict`);
+    if (!res.ok) throw new Error(`GET /api/dict falhou: ${res.status}`);
+    const dictItems = await res.json();
+    if (!Array.isArray(dictItems) || dictItems.length === 0) return { raw: [] };
+
+    logSection("Dicionário - total carregado");
+    logObj("count", dictItems.length);
+
+    // pré-filtro lexical
+    const candidates = pickTopDictCandidates(dictItems, question, DICT_MAX_CANDIDATES);
+    logSection("Dicionário - candidatos enviados ao modelo");
+    logObj("candidates_count", candidates.length);
+
+    // payload enxuto para o modelo
+    const slim = candidates.map(it => ({
+      id: it.id,
+      titulo: it.titulo,
+      autor: it.autor || "",
+      tipo: it.tipoConteudo || it.tipo_conteudo || "",
+      tags: Array.isArray(it.tags) ? it.tags : [],
+      link: it.link || "",
+      pago: !!it.pago
+    }));
+
+    const system = `
+Você seleciona itens de um dicionário relevantes para a pergunta do usuário.
+Critérios:
+- Escolha no máximo ${DICT_MAX_RECOMMEND} itens bem relacionados ao tema da pergunta.
+- Dê preferência a correspondências no título/tipo/tags.
+- Se nada for claramente relevante, retorne lista vazia.
+Responda EXCLUSIVAMENTE em JSON:
+{"recommendedIds": ["id1","id2",...]}
+`.trim();
+
+    const user = `
+Pergunta: """${question}"""
+
+Itens (JSON):
+${JSON.stringify(slim, null, 2)}
+`.trim();
+
+    const chatReq = {
+      model: CHAT_MODEL,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ],
+      temperature: 0,
+      top_p: 1,
+      max_tokens: 200,
+      seed: seedFromString(question + "|dict")
+    };
+    logOpenAIRequest("chat.completions.create [dict]", chatReq);
+    const t0 = Date.now();
+    const resp = await openai.chat.completions.create(chatReq);
+    const ms = Date.now() - t0;
+    logOpenAIResponse("chat.completions.create [dict]", resp, { duration_ms: ms });
+
+    const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
+    let ids = [];
+    try {
+      const m = raw.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(m ? m[0] : raw);
+      if (Array.isArray(parsed.recommendedIds)) ids = parsed.recommendedIds.slice(0, DICT_MAX_RECOMMEND);
+    } catch {
+      ids = [];
+    }
+
+    const selected = ids
+      .map(id => candidates.find(c => c.id === id))
+      .filter(Boolean)
+      .slice(0, DICT_MAX_RECOMMEND);
+
+    const finalSel = selected.length ? selected : candidates.slice(0, Math.min(3, candidates.length));
+
+    logSection("Dicionário - selecionados");
+    logObj("ids", finalSel.map(x => x.id));
+
+    return { raw: finalSel };
+  } catch (e) {
+    logSection("Dicionário - erro");
+    logObj("error", String(e));
+    return { raw: [] };
+  }
+}
+
 // ---------- Função principal ----------
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
