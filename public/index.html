@@ -6,127 +6,297 @@
   <title>Chat - Livro Abramede</title>
   <style>
     :root {
-      --bg: #1e1e2f;
-      --fg: #f5f5f5;
-      --primary: #4f8cff;
-      --secondary: #2e2e42;
-      --user: #3b82f6;
-      --bot: #10b981;
+      /* Paleta principal - tons de azul/roxo com gradientes sutis */
+      --bg-main: #0f0f1a;           /* Fundo principal - preto azulado */
+      --bg-container: #1a1b2e;      /* Container - azul muito escuro */
+      --bg-input: #16213e;          /* Área de input - azul escuro */
+      
+      /* Cores dos balões */
+      --user-bg: #4361ee;            /* Azul vibrante para usuário */
+      --bot-bg: #7209b7;             /* Roxo para bot - harmônico com azul */
+      --bot-gradient: linear-gradient(135deg, #7209b7 0%, #560bad 100%);
+      
+      /* Textos e destaques */
+      --text-primary: #e9ecef;       /* Texto principal - branco suave */
+      --text-secondary: #8892a6;     /* Texto secundário - cinza azulado */
+      --accent: #00d4ff;             /* Cyan para destaques */
+      --button-hover: #5a7fee;       /* Hover dos botões */
+      
+      /* Efeitos e bordas */
+      --shadow: rgba(0, 0, 0, 0.4);
+      --border-subtle: rgba(255, 255, 255, 0.06);
     }
-    body {
-      background: var(--bg);
-      color: var(--fg);
-      font-family: "Inter", "Segoe UI", sans-serif;
+    
+    * {
       margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: var(--bg-main);
+      background-image: 
+        radial-gradient(circle at 20% 50%, rgba(67, 97, 238, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(114, 9, 183, 0.05) 0%, transparent 50%);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
+      padding: 20px;
     }
+    
     h2 {
-      margin: 20px 0 10px;
-      color: var(--primary);
+      margin: 20px 0 16px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--user-bg) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
       text-align: center;
+      font-size: 28px;
+      font-weight: 700;
     }
-    #chat-container {
-      width: 90%;
-      max-width: 800px;
-      background: var(--secondary);
-      border-radius: 16px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      height: 80vh;
-      box-shadow: 0 0 20px rgba(0,0,0,0.3);
-    }
-    #chat {
-      flex: 1;
-      overflow-y: auto;
-      padding-right: 6px;
-      scrollbar-width: thin;
-    }
-    .msg {
-      margin: 8px 0;
-      display: flex;
-    }
-    .bubble {
-      padding: 10px 14px;
-      border-radius: 16px;
-      max-width: 75%;
-      line-height: 1.4;
-      word-wrap: break-word;
-      white-space: pre-wrap;
-    }
-    .user {
-      justify-content: flex-end;
-    }
-    .user .bubble {
-      background: var(--user);
-      color: white;
-      border-bottom-right-radius: 4px;
-    }
-    .bot {
-      justify-content: flex-start;
-    }
-    .bot .bubble {
-      background: var(--bot);
-      color: white;
-      border-bottom-left-radius: 4px;
-    }
-    #input-area {
-      display: flex;
-      align-items: center;
-      margin-top: 8px;
-    }
-    #question {
-      flex: 1;
-      padding: 10px 14px;
-      border-radius: 12px;
-      border: none;
-      outline: none;
-      font-size: 15px;
-      resize: none;
-      height: 60px;
-      background: #2b2b3f;
-      color: var(--fg);
-    }
-    #send {
-      margin-left: 10px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 12px;
-      background: var(--primary);
-      color: white;
-      font-size: 15px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    #send:hover {
-      background: #3573f7;
-    }
-    .small {
-      font-size: 0.8em;
-      opacity: 0.7;
-      margin-top: 4px;
-    }
-    .link-btn {
-      background: var(--primary);
-      color: #fff;
-      padding: 8px 14px;
-      border-radius: 10px;
-      text-decoration: none;
-      font-size: 14px;
-      transition: 0.2s;
-    }
-    .link-btn:hover {
-      background: #3573f7;
-    }
+    
     .top-actions {
       width: 90%;
       max-width: 800px;
       display: flex;
       justify-content: flex-end;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .link-btn {
+      background: linear-gradient(135deg, var(--user-bg), var(--button-hover));
+      color: white;
+      padding: 10px 18px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 14px rgba(67, 97, 238, 0.25);
+    }
+    
+    .link-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(67, 97, 238, 0.35);
+    }
+    
+    #chat-container {
+      width: 90%;
+      max-width: 800px;
+      background: var(--bg-container);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      height: 75vh;
+      box-shadow: 
+        0 0 40px var(--shadow),
+        inset 0 1px 0 var(--border-subtle);
+      backdrop-filter: blur(10px);
+    }
+    
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-subtle) transparent;
+    }
+    
+    #chat::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #chat::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    #chat::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 3px;
+    }
+    
+    #chat::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .msg {
+      margin: 12px 0;
+      display: flex;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .bubble {
+      padding: 12px 16px;
+      border-radius: 18px;
+      max-width: 70%;
+      line-height: 1.5;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      font-size: 15px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .user {
+      justify-content: flex-end;
+    }
+    
+    .user .bubble {
+      background: var(--user-bg);
+      color: white;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 3px 12px rgba(67, 97, 238, 0.3);
+    }
+    
+    .bot {
+      justify-content: flex-start;
+    }
+    
+    .bot .bubble {
+      background: var(--bot-gradient);
+      color: white;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 3px 12px rgba(114, 9, 183, 0.25);
+    }
+    
+    /* Estilos especiais para conteúdo HTML nas respostas */
+    .bot .bubble h1, .bot .bubble h2 {
+      font-size: 18px;
+      margin: 0 0 8px 0;
+      background: none;
+      -webkit-text-fill-color: white;
+    }
+    
+    .bot .bubble p {
+      color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .bot .bubble section {
+      background: rgba(0, 0, 0, 0.2) !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      margin: 10px 0 !important;
+    }
+    
+    #input-area {
+      display: flex;
+      align-items: flex-end;
+      margin-top: 16px;
+      gap: 12px;
+    }
+    
+    #question {
+      flex: 1;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      outline: none;
+      font-size: 15px;
+      resize: none;
+      min-height: 52px;
+      max-height: 120px;
+      background: var(--bg-input);
+      color: var(--text-primary);
+      transition: all 0.3s ease;
+      font-family: inherit;
+    }
+    
+    #question:focus {
+      border-color: var(--user-bg);
+      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    }
+    
+    #question::placeholder {
+      color: var(--text-secondary);
+    }
+    
+    #send {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--user-bg), var(--button-hover));
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 14px rgba(67, 97, 238, 0.25);
+    }
+    
+    #send:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(67, 97, 238, 0.35);
+    }
+    
+    #send:active {
+      transform: translateY(0);
+    }
+    
+    /* Indicador de digitação */
+    .typing-indicator {
+      display: inline-block;
+      padding: 12px 16px;
+    }
+    
+    .typing-indicator span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.6);
+      margin: 0 2px;
+      animation: typing 1.4s infinite;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+      0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.6;
+      }
+      30% {
+        transform: translateY(-10px);
+        opacity: 1;
+      }
+    }
+    
+    /* Responsividade */
+    @media (max-width: 600px) {
+      #chat-container {
+        width: 100%;
+        height: 80vh;
+        border-radius: 16px;
+        padding: 16px;
+      }
+      
+      .bubble {
+        max-width: 85%;
+      }
+      
+      h2 {
+        font-size: 24px;
+      }
     }
   </style>
 </head>
@@ -153,7 +323,14 @@
       msg.className = `msg ${role}`;
       const bubble = document.createElement("div");
       bubble.className = "bubble";
-      bubble.innerHTML = text.replace(/\n/g, "<br>");
+      
+      // Se for o indicador de "Pensando...", cria animação especial
+      if (text === "⏳ Pensando...") {
+        bubble.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+      } else {
+        bubble.innerHTML = text.replace(/\n/g, "<br>");
+      }
+      
       msg.appendChild(bubble);
       chat.appendChild(msg);
       chat.scrollTop = chat.scrollHeight;
@@ -162,8 +339,11 @@
     async function sendQuestion() {
       const question = q.value.trim();
       if (!question) return;
+      
       append("user", question);
       q.value = "";
+      q.style.height = "52px"; // Reset altura após enviar
+      
       append("bot", "⏳ Pensando...");
 
       try {
@@ -174,6 +354,7 @@
         });
         const data = await resp.json();
         chat.lastChild.remove(); // remove "Pensando..."
+        
         if (data.error) {
           append("bot", "⚠️ Erro: " + data.error);
         } else {
@@ -184,6 +365,12 @@
         append("bot", "⚠️ Erro de conexão: " + e.message);
       }
     }
+
+    // Auto-resize do textarea
+    q.addEventListener("input", function() {
+      this.style.height = "auto";
+      this.style.height = Math.min(this.scrollHeight, 120) + "px";
+    });
 
     // Clique no botão
     btn.addEventListener("click", sendQuestion);
