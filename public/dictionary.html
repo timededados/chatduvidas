@@ -523,21 +523,18 @@
         const textNode = document.createTextNode(tag);
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.dataset.tag = tag; // Usar dataset direto sem escaping
+        btn.dataset.tag = tag;
         btn.textContent = "×";
+        
+        // Adicionar event listener ao botão ANTES de inserir no DOM
+        btn.addEventListener("click", () => {
+          selectedTags = selectedTags.filter(t => t !== tag);
+          renderSelectedTags();
+        });
         
         chip.appendChild(textNode);
         chip.appendChild(btn);
         tagsInputWrapper.insertBefore(chip, tagsSearch);
-      });
-
-      // Event listeners para remover tags
-      $$(".tag-chip button").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const tag = btn.dataset.tag;
-          selectedTags = selectedTags.filter(t => t !== tag);
-          renderSelectedTags();
-        });
       });
     }
 
