@@ -390,6 +390,7 @@
     let recChunks = [];
     let recTimer = null;
     let recStart = 0;
+    let recMaxStop = null; // auto-stop timer
 
     function supportedMimeType() {
       const candidates = [
@@ -420,8 +421,9 @@
         micBtn.classList.remove("recording");
         micLabel.textContent = "Falar";
       }
-      btn.disabled = on; // evita enviar texto enquanto grava
+      btn.disabled = on;
       q.disabled = on;
+      micBtn.disabled = false; // mic habilitado para alternar
     }
 
     function startTimer() {
@@ -445,15 +447,30 @@
         mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data); };
         mediaRecorder.onstop = async () => {
           stopTimer();
+          clearTimeout(recMaxStop);
           setRecordingUI(false);
-          const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" });
-          await sendAudio(blob);
-          stream.getTracks().forEach(t => t.stop());
+          const mt = mediaRecorder?.mimeType || "audio/webm";
+          const blob = recChunks.length ? new Blob(recChunks, { type: mt }) : new Blob([], { type: mt });
+          // Limpa recursos do microfone
+          try { stream.getTracks().forEach(t => t.stop()); } catch {}
           mediaRecorder = null;
+          if (!blob.size) {
+            append("bot", "⚠️ Nenhum áudio foi capturado. Tente novamente.");
+            return;
+          }
+          // Evita re-clique durante envio
+          micBtn.disabled = true;
+          await sendAudio(blob);
+          micBtn.disabled = false;
         };
         setRecordingUI(true);
         startTimer();
-        mediaRecorder.start();
+        // timeslice ajuda a garantir eventos de dados em alguns navegadores
+        mediaRecorder.start(500);
+        // auto-stop após 30s para evitar payload grande
+        recMaxStop = setTimeout(() => {
+          if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+        }, 30000);
       } catch (e) {
         alert("Não foi possível acessar o microfone.");
         console.error(e);

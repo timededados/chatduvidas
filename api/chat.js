@@ -402,12 +402,19 @@ ${JSON.stringify(slim, null, 2)}
   }
 }
 
+// Para ambientes Next.js / Vercel: aumentar limite do body para áudio base64
+export const config = {
+  api: { bodyParser: { sizeLimit: "25mb" } }
+};
+
 // Adicionado: transcrição de áudio base64 com gpt-4o-mini-transcribe
 async function transcribeBase64AudioToText(audioStr, mime = "audio/webm") {
   try {
     logSection("Transcrição de áudio");
     const clean = String(audioStr || "").replace(/^data:.*;base64,/, "");
+    logObj("audio_base64_len", clean.length);
     const buf = Buffer.from(clean, "base64");
+    logObj("audio_bytes", buf.length);
     const ext = mime.includes("mpeg") ? "mp3"
       : mime.includes("wav") ? "wav"
       : mime.includes("ogg") ? "ogg"
@@ -419,7 +426,7 @@ async function transcribeBase64AudioToText(audioStr, mime = "audio/webm") {
     const resp = await openai.audio.transcriptions.create({
       model: "gpt-4o-mini-transcribe",
       file,
-      language: "pt" // ajuda a estabilizar para PT-BR
+      language: "pt"
     });
     const ms = Date.now() - t0;
     logObj("transcription_ms", ms);

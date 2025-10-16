@@ -38,7 +38,9 @@ if (!process.env.OPENAI_API_KEY) {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const app = express();
-app.use(bodyParser.json());
+// Aumenta limite para aceitar áudio em base64/data URL (~MBs)
+app.use(bodyParser.json({ limit: "25mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "25mb" }));
 app.use(cors());
 
 // Utilitário: transcrever áudio base64 para texto (gpt-4o-mini-transcribe)
@@ -178,6 +180,10 @@ app.post("/api/chat", async (req, res) => {
   try {
     // Novo: aceitar pergunta por voz (base64/data URL)
     const { question: questionRaw, audio, audio_mime } = req.body || {};
+    if (audio) {
+      // Log leve para depuração de tamanho e tipo de mídia
+      try { console.log("Audio payload:", { mime: audio_mime, len: String(audio).length }); } catch {}
+    }
     let question = String(questionRaw || "").trim();
     if (!question && audio) {
       question = await transcribeBase64AudioToText(audio, audio_mime || "audio/webm", openai);
