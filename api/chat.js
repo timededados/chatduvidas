@@ -586,7 +586,7 @@ Instruções de resposta:
         headerLine = "<strong>A resposta para a informação solicitada se encontra na página:</strong>";
       } else {
         // Plural: listar as páginas
-        headerLine = `<strong>A resposta para a informação solicitada se encontra nas páginas:</strong> ${citedPages.join(", ")}`;
+        headerLine = `<strong>A resposta para a informação solicitada se encontra nas páginas:</strong>`;
       }
     }
 
