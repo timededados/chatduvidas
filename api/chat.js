@@ -259,89 +259,82 @@ function buttonForType(tipoRaw, isPremium) {
   return { label: "🔗 Acessar conteúdo", kind: isPremium ? "premium" : "primary" };
 }
 
-// +++ Novo: estilos inline simples para botões (compatível com o chat)
+// +++ LAYOUT CORRIGIDO: estilos inline mais compactos e organizados
 function btnStyle(kind) {
-  const base = "display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600;border:1px solid;";
-  if (kind === "accent") return `${base}background:linear-gradient(180deg,rgba(56,189,248,.15),rgba(56,189,248,.05));border-color:rgba(56,189,248,.35);color:#e5e7eb;`;
-  if (kind === "premium") return `${base}background:linear-gradient(180deg,rgba(245,158,11,.18),rgba(245,158,11,.06));border-color:rgba(245,158,11,.35);color:#e5e7eb;`;
-  return `${base}background:linear-gradient(180deg,rgba(34,197,94,.15),rgba(34,197,94,.05));border-color:rgba(34,197,94,.35);color:#e5e7eb;`;
+  const base = "display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:500;font-size:14px;border:1px solid;";
+  if (kind === "accent") return `${base}background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.3);color:#38bdf8;`;
+  if (kind === "premium") return `${base}background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);color:#f59e0b;`;
+  return `${base}background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#22c55e;`;
 }
 
-// +++ Novo: renderiza lista de itens do dicionário como cards
+// +++ LAYOUT CORRIGIDO: renderiza lista de itens do dicionário com espaçamento otimizado
 function renderDictItemsList(items, isPremiumSection) {
   if (!items.length) return "";
+  
   const itemHtml = items.map(it => {
     const titulo = escapeHtml(it.titulo || "");
-    const autor = it.autor ? ` — <span style="color:#94a3b8">${escapeHtml(it.autor)}</span>` : "";
+    const autor = it.autor ? ` <span style="color:#94a3b8">— ${escapeHtml(it.autor)}</span>` : "";
     const tipo = it.tipoConteudo || it.tipo_conteudo || "";
     const { label, kind } = buttonForType(tipo, !!it.pago);
     const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank" rel="noopener noreferrer"` : "";
-    const btn = it.link ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
+    const btn = it.link ? `<a style="${btnStyle(kind)}"${href}>${label}</a>` : "";
     const img = it.imagemUrl
-      ? `<div style="margin-top:8px"><img src="${escapeAttr(it.imagemUrl)}" alt="Imagem do item" style="max-width:240px;max-height:160px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);" /></div>`
+      ? `<img src="${escapeAttr(it.imagemUrl)}" alt="" style="max-width:200px;max-height:120px;border-radius:8px;margin-top:8px;display:block;">`
       : "";
-    return `
-      <div style="display:grid;gap:6px;padding:12px;border:1px solid #1f2937;border-radius:12px;background:rgba(255,255,255,.02);">
-        <div><strong>${titulo}</strong>${autor}</div>
-        ${btn}
-        ${img}
-      </div>
-    `;
+    
+    return `<div style="padding:12px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px;">
+      <div style="font-weight:500;margin-bottom:6px;">${titulo}${autor}</div>
+      ${btn}
+      ${img}
+    </div>`;
   }).join("");
-  const labelDotColor = isPremiumSection ? "#f59e0b" : "#38bdf8";
-  const labelText = isPremiumSection ? "Conteúdo premium (opcional)" : "Conteúdo complementar (acesso incluído)";
-  return `
-    <section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);">
-      <span style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,.03);color:#cbd5e1;font-weight:600;font-size:12px;letter-spacing:.4px;text-transform:uppercase;">
-        <span style="width:8px;height:8px;border-radius:999px;background:${labelDotColor}"></span>${labelText}
-      </span>
-      <div style="display:grid;gap:10px;margin-top:10px">${itemHtml}</div>
-    </section>
-  `;
+  
+  const labelColor = isPremiumSection ? "#f59e0b" : "#38bdf8";
+  const labelText = isPremiumSection ? "CONTEÚDO PREMIUM" : "CONTEÚDO COMPLEMENTAR";
+  
+  return `<div style="background:#0f1419;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin:12px 0;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+      <span style="width:6px;height:6px;background:${labelColor};border-radius:50%;display:inline-block;"></span>
+      <span style="color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:0.5px;">${labelText}</span>
+    </div>
+    ${itemHtml}
+  </div>`;
 }
 
-// +++ Novo: monta o HTML final inspirado no template
+// +++ LAYOUT CORRIGIDO: HTML final com estrutura simplificada e espaçamento otimizado
 function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
-  const header = `
-    <header style="display:grid;gap:8px;margin-bottom:16px;">
-      <h1 style="font-size:20px;margin:0;font-weight:700;">Encontrei a informação que responde à sua dúvida 👇</h1>
-      <p style="color:#94a3b8;margin:0;">Primeiro o livro-base, depois material complementar (gratuito) e, por fim, um conteúdo premium opcional.</p>
-    </header>
-  `;
+  // Cabeçalho simplificado
+  const header = `<div style="margin-bottom:16px;">
+    <h2 style="font-size:18px;margin:0 0 8px 0;font-weight:600;">✅ Encontrei a informação que responde à sua dúvida</h2>
+    <p style="color:#94a3b8;margin:0;font-size:14px;">Abaixo está a resposta do livro-base e materiais complementares.</p>
+  </div>`;
 
-  // Livro (coloca a resposta do modelo dentro de uma "quote")
-  const libro = `
-    <section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);">
-      <span style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,.03);color:#cbd5e1;font-weight:600;font-size:12px;letter-spacing:.4px;text-transform:uppercase;">
-        <span style="width:8px;height:8px;border-radius:999px;background:#38bdf8"></span>Livro (fonte principal)
-      </span>
-      <div style="position:relative;padding:14px 16px;border-left:3px solid #38bdf8;background:rgba(56,189,248,.08);border-radius:8px;line-height:1.55;margin-top:10px;">
-        <div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div>
-        <small style="display:block;color:#94a3b8;margin-top:6px;">Trechos do livro-base do curso.</small>
-      </div>
-    </section>
-  `;
+  // Seção do livro com layout otimizado
+  const libro = `<div style="background:#0f1419;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin:12px 0;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+      <span style="width:6px;height:6px;background:#38bdf8;border-radius:50%;display:inline-block;"></span>
+      <span style="color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:0.5px;">LIVRO BASE</span>
+    </div>
+    <div style="border-left:3px solid #38bdf8;padding-left:12px;background:rgba(56,189,248,0.05);padding:12px;border-radius:6px;">
+      <div style="line-height:1.6;">${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div>
+      <div style="color:#64748b;font-size:12px;margin-top:8px;">Fonte: Livro-base do curso</div>
+    </div>
+  </div>`;
 
-  // Separar itens do dicionário entre gratuitos e premium
+  // Separar itens gratuitos e premium
   const freeItems = (dictItems || []).filter(x => !x.pago);
   const premiumItems = (dictItems || []).filter(x => x.pago);
 
   const freeBlock = freeItems.length ? renderDictItemsList(freeItems, false) : "";
   const premiumBlock = premiumItems.length ? renderDictItemsList(premiumItems, true) : "";
 
-  // Empilhar seções
-  const stack = [libro, freeBlock, premiumBlock].filter(Boolean).join('<div style="height:14px"></div>');
-
-  // Container com leve reset de cor de texto
-  return `
-    <div style="max-width:860px;">
-      ${header}
-      <div style="display:grid;gap:14px;">
-        ${stack}
-      </div>
-      <footer style="margin-top:16px;color:#94a3b8;font-size:12px;"></footer>
-    </div>
-  `;
+  // Monta o HTML final com layout compacto
+  return `<div style="max-width:700px;font-family:system-ui,-apple-system,sans-serif;">
+    ${header}
+    ${libro}
+    ${freeBlock}
+    ${premiumBlock}
+  </div>`;
 }
 
 // Adicionado: recomendação a partir do dicionário (retorna apenas os itens selecionados)
