@@ -276,6 +276,104 @@
       margin-bottom: 4px;
     }
     
+    .tags-container {
+      position: relative;
+    }
+    
+    .tags-input-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      min-height: 46px;
+      cursor: text;
+      transition: all 0.2s;
+    }
+    
+    .tags-input-wrapper:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1);
+    }
+    
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--primary);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-size: 13px;
+    }
+    
+    .tag-chip button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0;
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+    
+    .tag-chip button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .tags-search {
+      flex: 1;
+      min-width: 200px;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--fg);
+      font-size: 14px;
+      padding: 4px;
+    }
+    
+    .tags-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    .tags-dropdown-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .tags-dropdown-item:hover {
+      background: rgba(79, 140, 255, 0.1);
+    }
+    
+    .tags-dropdown-item.selected {
+      background: rgba(79, 140, 255, 0.2);
+      color: var(--primary);
+    }
+    
+    .tags-dropdown-empty {
+      padding: 10px 14px;
+      color: #9ca3af;
+      text-align: center;
+    }
+    
     @media (max-width: 768px) {
       .row {
         grid-template-columns: 1fr;
@@ -340,11 +438,20 @@
       
       <label>
         <span class="label-text">Tags (categorias do sumário)</span>
-        <select id="tags" multiple>
-          <!-- Preenchido dinamicamente via JavaScript -->
-        </select>
+        <div class="tags-container">
+          <div class="tags-input-wrapper" id="tagsInputWrapper">
+            <input 
+              type="text" 
+              class="tags-search" 
+              id="tagsSearch" 
+              placeholder="Buscar e adicionar categorias..."
+              autocomplete="off"
+            />
+          </div>
+          <div class="tags-dropdown" id="tagsDropdown" style="display: none;"></div>
+        </div>
         <small style="color: #9ca3af; margin-top: 4px; display: block;">
-          Segure Ctrl (Cmd no Mac) para selecionar múltiplas categorias
+          Digite para buscar e clique para adicionar categorias
         </small>
       </label>
       
@@ -381,6 +488,7 @@
 
     // Carregar categorias do sumário
     let categorias = [];
+    let selectedTags = [];
     
     async function loadCategorias() {
       try {
@@ -398,20 +506,100 @@
         });
         
         categorias = Array.from(categoriasSet).sort();
-        
-        // Preencher o select
-        const select = $("#tags");
-        select.innerHTML = "";
-        categorias.forEach(cat => {
-          const option = document.createElement("option");
-          option.value = cat;
-          option.textContent = cat;
-          select.appendChild(option);
-        });
       } catch (e) {
         console.error("Erro ao carregar categorias:", e);
       }
     }
+
+    // Sistema de tags com busca
+    const tagsSearch = $("#tagsSearch");
+    const tagsInputWrapper = $("#tagsInputWrapper");
+    const tagsDropdown = $("#tagsDropdown");
+
+    function renderSelectedTags() {
+      // Remove chips existentes
+      $$(".tag-chip").forEach(chip => chip.remove());
+      
+      // Adiciona novos chips antes do input
+      selectedTags.forEach(tag => {
+        const chip = document.createElement("div");
+        chip.className = "tag-chip";
+        chip.innerHTML = `
+          ${tag}
+          <button type="button" data-tag="${tag}">×</button>
+        `;
+        tagsInputWrapper.insertBefore(chip, tagsSearch);
+      });
+
+      // Event listeners para remover tags
+      $$(".tag-chip button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tag = btn.dataset.tag;
+          selectedTags = selectedTags.filter(t => t !== tag);
+          renderSelectedTags();
+        });
+      });
+    }
+
+    function filterAndShowDropdown(searchTerm) {
+      const term = searchTerm.toLowerCase().trim();
+      const filtered = categorias.filter(cat => 
+        cat.toLowerCase().includes(term) && !selectedTags.includes(cat)
+      );
+
+      if (!term || filtered.length === 0) {
+        tagsDropdown.style.display = "none";
+        if (term && filtered.length === 0) {
+          tagsDropdown.innerHTML = '<div class="tags-dropdown-empty">Nenhuma categoria encontrada</div>';
+          tagsDropdown.style.display = "block";
+        }
+        return;
+      }
+
+      tagsDropdown.innerHTML = filtered.slice(0, 10).map(cat => `
+        <div class="tags-dropdown-item" data-tag="${cat}">${cat}</div>
+      `).join("");
+
+      tagsDropdown.style.display = "block";
+
+      // Event listeners para adicionar tags
+      $$(".tags-dropdown-item").forEach(item => {
+        item.addEventListener("click", () => {
+          const tag = item.dataset.tag;
+          if (!selectedTags.includes(tag)) {
+            selectedTags.push(tag);
+            renderSelectedTags();
+            tagsSearch.value = "";
+            tagsDropdown.style.display = "none";
+            tagsSearch.focus();
+          }
+        });
+      });
+    }
+
+    tagsSearch.addEventListener("input", (e) => {
+      filterAndShowDropdown(e.target.value);
+    });
+
+    tagsSearch.addEventListener("focus", (e) => {
+      if (e.target.value) {
+        filterAndShowDropdown(e.target.value);
+      }
+    });
+
+    // Fechar dropdown ao clicar fora
+    document.addEventListener("click", (e) => {
+      if (!tagsInputWrapper.contains(e.target) && !tagsDropdown.contains(e.target)) {
+        tagsDropdown.style.display = "none";
+      }
+    });
+
+    // Permitir clicar no wrapper para focar no input
+    tagsInputWrapper.addEventListener("click", (e) => {
+      if (e.target === tagsInputWrapper) {
+        tagsSearch.focus();
+      }
+    });
 
     function setMsg(text, isError=false) {
       const el = $("#msg");
@@ -426,10 +614,7 @@
       const pagoVal = $$("input[name='pago']:checked")[0]?.value || "nao";
       const pago = pagoVal === "sim";
       const link = $("#link").value.trim();
-      // Pegar valores selecionados do select múltiplo
-      const tagsSelect = $("#tags");
-      const tags = Array.from(tagsSelect.selectedOptions).map(opt => opt.value);
-      return { titulo, autor, tipoConteudo, pago, link, tags };
+      return { titulo, autor, tipoConteudo, pago, link, tags: [...selectedTags] };
     }
 
     function payloadToForm(d) {
@@ -440,12 +625,9 @@
       $$("input[name='pago']").forEach(r => r.checked = (r.value === pagoVal));
       $("#link").value = d.link || "";
       
-      // Selecionar as tags corretas no select múltiplo
-      const tagsSelect = $("#tags");
-      const tagsArray = Array.isArray(d.tags) ? d.tags : [];
-      Array.from(tagsSelect.options).forEach(opt => {
-        opt.selected = tagsArray.includes(opt.value);
-      });
+      // Atualizar tags selecionadas
+      selectedTags = Array.isArray(d.tags) ? [...d.tags] : [];
+      renderSelectedTags();
     }
 
     async function loadList() {
@@ -547,6 +729,7 @@
 
     function resetForm() {
       $("#entryId").value = "";
+      selectedTags = [];
       payloadToForm({ titulo: "", autor: "", tipoConteudo: "", pago: false, link: "", tags: [] });
     }
 
