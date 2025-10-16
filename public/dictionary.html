@@ -563,24 +563,22 @@
         item.className = "tags-dropdown-item";
         item.dataset.tag = cat;
         item.textContent = cat;
-        tagsDropdown.appendChild(item);
-      });
-
-      tagsDropdown.style.display = "block";
-
-      // Event listeners para adicionar tags
-      $$(".tags-dropdown-item").forEach(item => {
+        
+        // Adicionar event listener diretamente ao criar o elemento
         item.addEventListener("click", () => {
-          const tag = item.dataset.tag;
-          if (!selectedTags.includes(tag)) {
-            selectedTags.push(tag);
+          if (!selectedTags.includes(cat)) {
+            selectedTags.push(cat);
             renderSelectedTags();
             tagsSearch.value = "";
             tagsDropdown.style.display = "none";
             tagsSearch.focus();
           }
         });
+        
+        tagsDropdown.appendChild(item);
       });
+
+      tagsDropdown.style.display = "block";
     }
 
     tagsSearch.addEventListener("input", (e) => {
