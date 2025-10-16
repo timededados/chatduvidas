@@ -179,7 +179,8 @@
         } else {
           append("bot", data.answer);
           if (data.used_pages?.length) {
-            append("bot", `<span class="small">📖 Páginas consultadas: ${data.used_pages.map(p => p.pagina).join(", ")}</span>`);
+            const pages = data.used_pages.map(p => (p && typeof p === "object") ? p.pagina : p);
+            append("bot", `<span class="small">📖 Páginas consultadas: ${pages.join(", ")}</span>`);
           }
         }
       } catch (e) {

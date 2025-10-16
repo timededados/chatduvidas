@@ -360,7 +360,9 @@ export default async function handler(req, res) {
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
 
     // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
-    const pagesFromSummary = searchSummary(sumario, question);
+    const pagesFromSummary = (typeof searchSummary === "function")
+      ? searchSummary(sumario, question)
+      : [];
     if (als.getStore()?.enabled) {
       logSection("Páginas do sumário");
       logObj("pagesFromSummary", pagesFromSummary);
