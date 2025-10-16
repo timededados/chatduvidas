@@ -120,6 +120,73 @@ function countOccurrences(text, token) {
   return (text.match(re) || []).length;
 }
 
+// Adicionado: funções de busca no sumário (faltavam)
+function buildSummaryIndex(sumario) {
+  const index = new Map();
+  const addKey = (key, pages) => {
+    const k = normalizeStr(key).trim();
+    if (!k) return;
+    const set = index.get(k) || new Set();
+    (pages || []).forEach(p => set.add(p));
+    index.set(k, set);
+  };
+
+  for (const top of sumario || []) {
+    const topPages = top?.paginas || [];
+    if (top?.topico) addKey(top.topico, topPages);
+
+    for (const st of top?.subtopicos || []) {
+      const stPages = (st?.paginas && st.paginas.length ? st.paginas : topPages);
+      if (st?.titulo) {
+        addKey(st.titulo, stPages);
+        const tokens = normalizeStr(st.titulo).split(/\W+/).filter(Boolean);
+        if (tokens.length >= 2) {
+          const acronym = tokens.map(w => w[0]).join("");
+          addKey(acronym, stPages);
+        }
+      }
+    }
+  }
+
+  const findPagesBySubtopicTitle = (needleNorm) => {
+    for (const top of sumario || []) {
+      for (const st of top?.subtopicos || []) {
+        if (normalizeStr(st?.titulo || "") === needleNorm) {
+          return st?.paginas || [];
+        }
+      }
+    }
+    return [];
+  };
+
+  const rcpPages = findPagesBySubtopicTitle("ressuscitacao cardiopulmonar");
+  if (rcpPages.length) {
+    [
+      "massagem cardiaca",
+      "compressao toracica",
+      "compressoes toracicas",
+      "cpr",
+      "parada cardiorrespiratoria",
+      "ressuscitacao cardiopulmonar",
+      "rcp"
+    ].forEach(k => addKey(k, rcpPages));
+  }
+
+  return index;
+}
+
+function searchSummary(sumario, query) {
+  const idx = buildSummaryIndex(sumario);
+  const nq = normalizeStr(query);
+  const hits = new Set();
+  for (const [key, pages] of idx.entries()) {
+    if (key && nq.includes(key)) {
+      pages.forEach(p => hits.add(p));
+    }
+  }
+  return Array.from(hits).sort((a, b) => a - b);
+}
+
 // +++ Novo: helpers para recomendação do dicionário +++
 function buildBaseUrl(req) {
   const proto = req.headers["x-forwarded-proto"] || "http";
