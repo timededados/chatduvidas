@@ -374,6 +374,61 @@
       text-align: center;
     }
     
+    .upload-container {
+      margin-top: 16px;
+      display: none;
+    }
+    
+    .upload-container.visible {
+      display: block;
+    }
+    
+    .upload-preview {
+      margin-top: 12px;
+      max-width: 200px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+    }
+    
+    .upload-label {
+      display: inline-block;
+      padding: 10px 20px;
+      background: var(--primary);
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .upload-label:hover {
+      background: #3573f7;
+    }
+    
+    input[type="file"] {
+      display: none;
+    }
+    
+    .upload-status {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+    
+    .remove-image {
+      margin-top: 8px;
+      padding: 6px 12px;
+      background: var(--danger);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    
+    .remove-image:hover {
+      background: #dc2626;
+    }
+    
     @media (max-width: 768px) {
       .row {
         grid-template-columns: 1fr;
@@ -399,6 +454,7 @@
 
     <form id="dictForm">
       <input type="hidden" id="entryId" />
+      <input type="hidden" id="imagemUrl" />
       
       <label>
         <span class="label-text">Título (obrigatório)</span>
@@ -429,6 +485,19 @@
           <div class="radio-group">
             <label><input type="radio" name="pago" value="nao" checked /> Não</label>
             <label><input type="radio" name="pago" value="sim" /> Sim</label>
+          </div>
+          
+          <!-- Campo de upload de imagem (aparece quando Pago = Sim) -->
+          <div class="upload-container" id="uploadContainer">
+            <label class="upload-label">
+              📷 Escolher Imagem
+              <input type="file" id="imagemFile" accept="image/*" />
+            </label>
+            <div class="upload-status" id="uploadStatus"></div>
+            <img id="imagemPreview" class="upload-preview" style="display: none;" />
+            <button type="button" class="remove-image" id="removeImageBtn" style="display: none;">
+              🗑️ Remover Imagem
+            </button>
           </div>
         </label>
         <label>
@@ -473,6 +542,7 @@
             <th>Autor</th>
             <th>Tipo</th>
             <th>Pago</th>
+            <th>Imagem</th>
             <th>Link</th>
             <th>Tags</th>
             <th>Ações</th>
@@ -659,7 +729,8 @@
       const pagoVal = $$("input[name='pago']:checked")[0]?.value || "nao";
       const pago = pagoVal === "sim";
       const link = $("#link").value.trim();
-      return { titulo, autor, tipoConteudo, pago, link, tags: [...selectedTags] };
+      const imagemUrl = imagemUrlInput.value.trim();
+      return { titulo, autor, tipoConteudo, pago, link, imagemUrl, tags: [...selectedTags] };
     }
 
     function payloadToForm(d) {
@@ -670,7 +741,22 @@
       $$("input[name='pago']").forEach(r => r.checked = (r.value === pagoVal));
       $("#link").value = d.link || "";
       
-      // Atualizar tags selecionadas (dedup)
+      // Controlar visibilidade do upload e preview da imagem
+      if (d.pago) {
+        uploadContainer.classList.add("visible");
+        if (d.imagemUrl) {
+          imagemUrlInput.value = d.imagemUrl;
+          imagemPreview.src = d.imagemUrl;
+          imagemPreview.style.display = "block";
+          removeImageBtn.style.display = "inline-block";
+          uploadStatus.textContent = "✅ Imagem carregada";
+          uploadStatus.style.color = "var(--success)";
+        }
+      } else {
+        uploadContainer.classList.remove("visible");
+        clearImageUpload();
+      }
+      
       selectedTags = Array.isArray(d.tags) ? [...new Set(d.tags)] : [];
       renderSelectedTags();
     }
@@ -685,17 +771,21 @@
       const body = $("#listBody");
       body.innerHTML = "";
       if (!items.length) {
-        body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:24px;">Nenhum item cadastrado ainda.</td></tr>';
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:24px;">Nenhum item cadastrado ainda.</td></tr>';
         return;
       }
       items.forEach(item => {
         const tr = document.createElement("tr");
         const tagsHtml = (item.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+        const imagemHtml = item.imagemUrl 
+          ? `<img src="${escapeAttr(item.imagemUrl)}" style="max-width:60px;border-radius:4px;" alt="Preview" />` 
+          : "—";
         tr.innerHTML = `
           <td><strong>${escapeHtml(item.titulo)}</strong></td>
           <td>${escapeHtml(item.autor || "—")}</td>
           <td>${escapeHtml(item.tipoConteudo || "—")}</td>
           <td>${item.pago ? "✅ Sim" : "❌ Não"}</td>
+          <td>${imagemHtml}</td>
           <td>${item.link ? `<a href="${escapeAttr(item.link)}" target="_blank">🔗 Abrir</a>` : "—"}</td>
           <td>${tagsHtml || "—"}</td>
           <td class="actions">
@@ -775,7 +865,8 @@
     function resetForm() {
       $("#entryId").value = "";
       selectedTags = [];
-      payloadToForm({ titulo: "", autor: "", tipoConteudo: "", pago: false, link: "", tags: [] });
+      clearImageUpload();
+      payloadToForm({ titulo: "", autor: "", tipoConteudo: "", pago: false, link: "", imagemUrl: "", tags: [] });
     }
 
     $("#dictForm").addEventListener("submit", onSubmit);

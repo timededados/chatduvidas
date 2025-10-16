@@ -47,12 +47,13 @@ function validateEntry(input) {
   const pago = Boolean(pagoRaw);
   const link = String(input.link || "").trim();
   if (link && !/^https?:\/\/\S+/i.test(link)) return { ok: false, error: "link inválido" };
+  const imagemUrl = String(input.imagemUrl || "").trim();
   let tags = input.tags;
   if (typeof tags === "string") {
     tags = tags.split(",").map(t => t.trim()).filter(Boolean);
   }
   if (!Array.isArray(tags)) tags = [];
-  return { ok: true, value: { titulo, autor, tipo_conteudo: tipoConteudo, pago, link, tags } };
+  return { ok: true, value: { titulo, autor, tipo_conteudo: tipoConteudo, pago, link, imagem_url: imagemUrl, tags } };
 }
 
 export default async function handler(req, res) {
@@ -77,6 +78,7 @@ export default async function handler(req, res) {
         tipoConteudo: item.tipo_conteudo,
         pago: item.pago,
         link: item.link,
+        imagemUrl: item.imagem_url,
         tags: item.tags || [],
         createdAt: item.created_at,
         updatedAt: item.updated_at
@@ -107,6 +109,7 @@ export default async function handler(req, res) {
         tipoConteudo: data.tipo_conteudo,
         pago: data.pago,
         link: data.link,
+        imagemUrl: data.imagem_url,
         tags: data.tags || [],
         createdAt: data.created_at,
         updatedAt: data.updated_at
@@ -140,6 +143,7 @@ export default async function handler(req, res) {
         tipoConteudo: data.tipo_conteudo,
         pago: data.pago,
         link: data.link,
+        imagemUrl: data.imagem_url,
         tags: data.tags || [],
         createdAt: data.created_at,
         updatedAt: data.updated_at
@@ -177,6 +181,7 @@ export default async function handler(req, res) {
         tipoConteudo: data.tipo_conteudo,
         pago: data.pago,
         link: data.link,
+        imagemUrl: data.imagem_url,
         tags: data.tags || [],
         createdAt: data.created_at,
         updatedAt: data.updated_at
