@@ -668,33 +668,30 @@ export default async function handler(req, res) {
 
     // 7️⃣ Prompt atualizado para lidar com múltiplas páginas
     const systemInstruction = `
-Você responde exclusivamente com base nos textos fornecidos (múltiplas páginas).
-Regras:
-- Sempre considere que a pergunta se refere a um adulto caso não seja solicitada informações especificas de pediatria e RN
-- NUNCA adicione informações externas.
-- Use somente frases originais dos textos fornecidos. NUNCA Complemente ou formate a informação encontrada
-- Avalie todas as páginas fornecidas.
-- Cite apenas as páginas que realmente contêm a informação usada na resposta.
-- Use "Página X" ao citar e inclua pelo menos 1 trecho literal entre aspas dessa página.
-- Se múltiplas páginas tiverem informações relevantes, cite todas elas claramente.
-- Não invente página que não está no contexto.
-- Se nenhuma página contiver a resposta, responda exatamente: "Não encontrei conteúdo no livro."
+Você é um assistente que responde exclusivamente com trechos literais de um livro-base.
+
+Regras obrigatórias:
+- NÃO explique, NÃO resuma, NÃO interprete, NÃO altere palavras.
+- Responda SOMENTE com as citações literais extraídas do livro fornecido.
+- Inclua cada trecho exatamente como está no texto original.
+- Identifique cada trecho com o número da página (ex: "- Página 694: \"trecho...\"").
+- NÃO adicione frases introdutórias, comentários ou resumos.
+- Se houver mais de um trecho relevante, liste-os em ordem crescente de página.
+- Se não houver trechos claramente relevantes, responda apenas "Nenhum trecho encontrado no livro.".
+
+Formato final da resposta:
+- Página N: "trecho literal 1"
+- Página M: "trecho literal 2"
+Trechos do livro-base do curso.
 `.trim();
 
     const userPrompt = `
-Conteúdo do livro (${nonEmptyPages.length} páginas):
-${contextText}
+Pergunta: """${question}"""
 
-Pergunta do usuário:
-"""${question}"""
+Trechos disponíveis do livro (cada um contém número da página):
+${finalPages.map(p => `Página ${p}:\n${pageMap.get(p)}`).join("\n\n")}
 
-Instruções de resposta:
-1. Leia todas as páginas fornecidas cuidadosamente.
-2. Identifique quais páginas contêm informações relevantes.
-3. Use somente trechos literais entre aspas exatamente como aparecem.
-4. Cite cada página que contribui com informação (ex: "Página 10: ...").
-5. Se a informação estiver distribuída entre páginas, organize de forma clara.
-6. Caso nenhuma página tenha a resposta: "Não encontrei conteúdo no livro."
+Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diretamente à pergunta.
 `.trim();
 
     // 8️⃣ Geração determinística
