@@ -221,16 +221,32 @@ function pickTopDictCandidates(items, question, limit = DICT_MAX_CANDIDATES) {
   return withScores.slice(0, limit).map(x => x.it);
 }
 
+// Adicionado: helpers para escapar HTML/atributos
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+}
+function escapeAttr(s) {
+  return String(s).replace(/"/g, "&quot;");
+}
+
+// Atualizado: incluir botão "Clique aqui" e imagem (quando houver)
 function formatDictRecommendations(selected) {
   if (!selected.length) return "";
   const lines = selected.map(it => {
     const tipo = it.tipoConteudo || it.tipo_conteudo || "";
-    const autor = it.autor ? ` — ${it.autor}` : "";
-    const tags = (it.tags && it.tags.length) ? ` — Tags: ${it.tags.join(", ")}` : "";
-    const link = it.link ? ` — Link: ${it.link}` : "";
-    return `• ${it.titulo}${tipo ? ` (${tipo})` : ""}${autor}${tags}${link}`;
+    const titulo = escapeHtml(it.titulo || "");
+    const autor = it.autor ? ` — ${escapeHtml(it.autor)}` : "";
+    const tipoStr = tipo ? ` (${escapeHtml(tipo)})` : "";
+    const tags = (Array.isArray(it.tags) && it.tags.length) ? ` — Tags: ${it.tags.map(escapeHtml).join(", ")}` : "";
+    const linkBtn = it.link
+      ? ` <a href="${escapeAttr(it.link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-left:8px;padding:6px 10px;background:#4f8cff;color:#fff;border-radius:8px;text-decoration:none;">Clique aqui</a>`
+      : "";
+    const img = it.imagemUrl
+      ? `<br><img src="${escapeAttr(it.imagemUrl)}" alt="Imagem do item" style="max-width:240px;max-height:160px;border-radius:8px;margin-top:6px;border:1px solid rgba(255,255,255,0.15);" />`
+      : "";
+    return `• ${titulo}${tipoStr}${autor}${tags}${linkBtn}${img}`;
   });
-  return ["Recomendações do dicionário:", ...lines].join("\n");
+  return ["<strong>Recomendações do dicionário:</strong>", ...lines].join("\n");
 }
 
 async function recommendFromDictionary(req, question) {
