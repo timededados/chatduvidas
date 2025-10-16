@@ -619,8 +619,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // 5️⃣ Seleciona até 2 páginas principais
-    const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
+    // 5️⃣ Seleciona até 3 páginas principais
+    const selectedPages = ranked.slice(0, Math.min(3, ranked.length)).map(r => r.pagina);
     
     // +++ NOVO: Expande com páginas adjacentes +++
     let finalPages;
