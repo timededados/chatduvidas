@@ -23,8 +23,8 @@ const DICT_MAX_RECOMMEND = 5;
 
 // Configuração de expansão de contexto
 const EXPAND_CONTEXT = true;
-const ADJACENT_RANGE = 1;  // ✅ Reduzido de volta para ±1 (categoria inteira já dá muitas páginas)
-const TOP_PAGES_TO_SELECT = 3;  // ✅ Reduzido para 3 (teremos mais páginas da categoria)
+const ADJACENT_RANGE = 0;
+const TOP_PAGES_TO_SELECT = 5;  // ✅ Aumentado de 3 para 5 (página 915 está no 5º lugar)
 
 // ==== Sistema de Logging ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
@@ -188,49 +188,62 @@ async function semanticSearchSummary(sumario, question) {
     // ✅ Foca apenas em: categoria > tópico > subtópico
     const flatStructure = [];
     
-    for (const secao of sumario) {
-      for (const cat of secao.categorias || []) {
-        for (const top of cat.topicos || []) {
-          for (const sub of top.subtopicos || []) {
+    try {
+      for (const secao of sumario) {
+        for (const cat of secao.categorias || []) {
+          // Adiciona categoria base se tiver páginas próprias
+          if (cat.paginas && cat.paginas.length > 0) {
             flatStructure.push({
               categoria: cat.categoria,
-              topico: top.topico,
-              subtopico: sub.titulo,
-              paginas: sub.paginas || [],
-              // Mantém referência interna para busca posterior
+              topico: null,
+              subtopico: null,
+              paginas: cat.paginas,
               _secao: secao.secao
             });
           }
           
-          // Adiciona tópico sem subtópicos também
-          if (!top.subtopicos || top.subtopicos.length === 0) {
-            flatStructure.push({
-              categoria: cat.categoria,
-              topico: top.topico,
-              subtopico: null,
-              paginas: top.paginas || [],
-              _secao: secao.secao
-            });
+          for (const top of cat.topicos || []) {
+            // Adiciona tópico base se tiver páginas próprias
+            if (top.paginas && top.paginas.length > 0) {
+              flatStructure.push({
+                categoria: cat.categoria,
+                topico: top.topico,
+                subtopico: null,
+                paginas: top.paginas,
+                _secao: secao.secao
+              });
+            }
+            
+            for (const sub of top.subtopicos || []) {
+              // Adiciona subtópico se tiver páginas
+              if (sub.paginas && sub.paginas.length > 0) {
+                flatStructure.push({
+                  categoria: cat.categoria,
+                  topico: top.topico,
+                  subtopico: sub.titulo,
+                  paginas: sub.paginas,
+                  _secao: secao.secao
+                });
+              }
+            }
           }
         }
-        
-        // Adiciona categoria sem tópicos também
-        if (!cat.topicos || cat.topicos.length === 0) {
-          flatStructure.push({
-            categoria: cat.categoria,
-            topico: null,
-            subtopico: null,
-            paginas: cat.paginas || [],
-            _secao: secao.secao
-          });
-        }
       }
+    } catch (structureError) {
+      logSection("Busca Semântica no Sumário - Erro na estruturação");
+      logObj("error", String(structureError));
+      return { pages: [], paths: [] };
+    }
+
+    if (flatStructure.length === 0) {
+      logSection("Busca Semântica no Sumário - Estrutura vazia");
+      return { pages: [], paths: [] };
     }
 
     logSection("Busca Semântica no Sumário - Estrutura Preparada");
     logObj("total_items_in_index", flatStructure.length);
     logObj("sample_items", flatStructure.slice(0, 5).map((item, idx) => 
-      `[${idx}] ${item.categoria} > ${item.topico || 'GERAL'}`
+      `[${idx}] ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`
     ));
 
     // 2. Criar prompt focado APENAS em categorias/tópicos/subtópicos
