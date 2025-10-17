@@ -179,7 +179,7 @@ function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE)
   return Array.from(expandedSet).sort((a, b) => a - b);
 }
 
-// ==== NOVA FUNÇÃO: Busca Semântica no Sumário com OpenAI (OTIMIZADA) ====
+// ==== NOVA FUNÇÃO: Busca Semântica no Sumário com OpenAI (ULTRA-OTIMIZADA) ====
 async function semanticSearchSummary(sumario, question) {
   try {
     logSection("Busca Semântica no Sumário - Início");
@@ -190,7 +190,6 @@ async function semanticSearchSummary(sumario, question) {
     try {
       for (const secao of sumario) {
         for (const cat of secao.categorias || []) {
-          // Adiciona categoria base se tiver páginas próprias
           if (cat.paginas && cat.paginas.length > 0) {
             flatStructure.push({
               categoria: cat.categoria,
@@ -202,7 +201,6 @@ async function semanticSearchSummary(sumario, question) {
           }
           
           for (const top of cat.topicos || []) {
-            // Adiciona tópico base se tiver páginas próprias
             if (top.paginas && top.paginas.length > 0) {
               flatStructure.push({
                 categoria: cat.categoria,
@@ -214,7 +212,6 @@ async function semanticSearchSummary(sumario, question) {
             }
             
             for (const sub of top.subtopicos || []) {
-              // Adiciona subtópico se tiver páginas
               if (sub.paginas && sub.paginas.length > 0) {
                 flatStructure.push({
                   categoria: cat.categoria,
@@ -242,23 +239,23 @@ async function semanticSearchSummary(sumario, question) {
     logSection("Busca Semântica no Sumário - Estrutura Preparada");
     logObj("total_items_in_index", flatStructure.length);
 
-    // 2. ✅ CRIAR VERSÃO COMPACTA para o modelo (sem arrays de páginas)
-    const summaryIndex = flatStructure.map((item, idx) => ({
-      id: idx,
-      secao: item._secao,
-      categoria: item.categoria,
-      topico: item.topico || "GERAL",
-      subtopico: item.subtopico || "GERAL",
-      pages_count: (item.paginas || []).length
-    }));
+    // 2. ✅ CRIAR ÍNDICE ULTRA-COMPACTO (formato array, não objeto)
+    // Formato: [id, "categoria", "tópico", "subtópico", pageCount]
+    const summaryIndex = flatStructure.map((item, idx) => [
+      idx,
+      item.categoria,
+      item.topico || "-",
+      item.subtopico || "-",
+      (item.paginas || []).length
+    ]);
 
-    logSection("Busca Semântica no Sumário - Índice Compacto Criado");
+    logSection("Busca Semântica no Sumário - Índice Ultra-Compacto Criado");
     logObj("index_items", summaryIndex.length);
     logObj("sample_index", summaryIndex.slice(0, 5));
     
     // Calcular economia de tokens (aproximada)
     const fullSize = JSON.stringify(flatStructure).length;
-    const compactSize = JSON.stringify(summaryIndex).length;
+    const compactSize = JSON.stringify(summaryIndex).length; // SEM pretty-print!
     const savings = ((1 - compactSize / fullSize) * 100).toFixed(1);
     logObj("token_optimization", {
       full_structure_chars: fullSize,
@@ -266,33 +263,35 @@ async function semanticSearchSummary(sumario, question) {
       savings_percentage: `${savings}%`
     });
 
-    // 3. Criar prompt otimizado
+    // 3. Criar prompt ULTRA-otimizado
     logSection("Busca Semântica no Sumário - Preparando Prompt");
     
     const systemPrompt = `Você é um especialista em medicina de emergência e terapia intensiva.
 
-Sua tarefa é identificar quais categorias, tópicos e subtópicos de um índice médico são relevantes para responder a pergunta do usuário.
+Identifique itens do índice médico relevantes para a pergunta.
 
 IMPORTANTE:
-- Considere sinônimos médicos (ex: PCR = parada cardiorrespiratória = parada cardíaca = RCP)
-- Considere abreviações comuns (ex: IAM, AVC, TEP, RCP, etc)
-- Seja MUITO inclusivo: procure o termo em TODOS os níveis (categoria, tópico, subtópico)
-- Para perguntas BÁSICAS sobre um tema (ex: "como fazer RCP?", "frequência de RCP"): identifique TODAS as ocorrências do tema
-- SEMPRE considere que a pergunta é sobre adultos, a menos que especifique pediatria
+- Considere sinônimos (PCR = parada cardiorrespiratória = RCP = ressuscitação cardiopulmonar)
+- Considere abreviações (IAM, AVC, TEP, RCP, PCR)
+- Procure em categoria, tópico E subtópico
+- Seja INCLUSIVO: se a pergunta menciona "RCP", retorne TODAS as ocorrências
+- Padrão: adultos (ignore pediátrico a menos que solicitado)
 
-Responda EXCLUSIVAMENTE em JSON com os IDs dos itens relevantes:
-{
-  "relevant_indices": [0, 5, 12]
-}
+FORMATO DO ÍNDICE (array):
+[id, "categoria", "tópico ou -", "subtópico ou -", qtd_páginas]
 
-Se nada for relevante: {"relevant_indices": []}`;
+Responda APENAS JSON:
+{"relevant_indices": [0, 5, 12]}
 
-    const userPrompt = `Pergunta do usuário: """${question}"""
+Se nada relevante: {"relevant_indices": []}`;
 
-Índice do sumário (${summaryIndex.length} itens):
-${JSON.stringify(summaryIndex, null, 2)}
+    // ✅ Enviar índice SEM pretty-print (compacto)
+    const userPrompt = `Pergunta: "${question}"
 
-Identifique os IDs (campo "id") dos itens relevantes para responder a pergunta.`;
+Índice (${summaryIndex.length} itens):
+${JSON.stringify(summaryIndex)}
+
+Retorne os IDs (primeiro número de cada array) dos itens relevantes.`;
 
     const chatReq = {
       model: CHAT_MODEL,
@@ -302,7 +301,7 @@ Identifique os IDs (campo "id") dos itens relevantes para responder a pergunta.`
       ],
       temperature: 0,
       top_p: 1,
-      max_tokens: 500,
+      max_tokens: 800,  // ← Aumentado para comportar mais IDs
       seed: seedFromString(question + "|summary")
     };
 
@@ -312,7 +311,7 @@ Identifique os IDs (campo "id") dos itens relevantes para responder a pergunta.`
     const ms = Date.now() - t0;
     logOpenAIResponse("chat.completions.create [semantic_summary]", resp, { duration_ms: ms });
 
-    // 4. Parsear resposta e extrair páginas
+    // 4. Parsear resposta
     logSection("Busca Semântica no Sumário - Parseando Resposta");
     const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
     logObj("raw_response_preview", truncate(raw, 500));
@@ -334,7 +333,7 @@ Identifique os IDs (campo "id") dos itens relevantes para responder a pergunta.`
     logObj("relevant_indices", relevantIndices);
     logObj("count", relevantIndices.length);
 
-    // 5. ✅ BUSCAR PÁGINAS COMPLETAS usando os índices retornados
+    // 5. ✅ BUSCAR PÁGINAS COMPLETAS
     logSection("Busca Semântica no Sumário - Coletando Páginas");
     const pagesSet = new Set();
     const relevantPaths = [];
@@ -342,7 +341,7 @@ Identifique os IDs (campo "id") dos itens relevantes para responder a pergunta.`
     try {
       for (const idx of relevantIndices) {
         if (idx >= 0 && idx < flatStructure.length) {
-          const item = flatStructure[idx];  // ← Acessa estrutura completa com páginas!
+          const item = flatStructure[idx];
           (item.paginas || []).forEach(p => pagesSet.add(p));
           
           relevantPaths.push({
@@ -350,7 +349,7 @@ Identifique os IDs (campo "id") dos itens relevantes para responder a pergunta.`
             categoria: item.categoria,
             topico: item.topico,
             subtopico: item.subtopico,
-            reasoning: `Índice ${idx}: ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`,
+            reasoning: `ID ${idx}: ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`,
             pages_count: (item.paginas || []).length
           });
         }
@@ -367,11 +366,10 @@ Identifique os IDs (campo "id") dos itens relevantes para responder a pergunta.`
     logObj("items_found", relevantPaths.length);
     logObj("total_pages_from_items", relevantPaths.reduce((sum, p) => sum + p.pages_count, 0));
     logObj("unique_pages", pages.length);
-    logObj("pages_preview", pages.slice(0, 10));
+    logObj("pages_preview", pages.slice(0, 20));
     logObj("paths_summary", relevantPaths.map(p => ({
       path: `${p.categoria} > ${p.topico || 'ALL'} > ${p.subtopico || 'ALL'}`,
-      pages: p.pages_count,
-      reason: p.reasoning
+      pages: p.pages_count
     })));
 
     return { pages, paths: relevantPaths };
