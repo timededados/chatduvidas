@@ -23,7 +23,7 @@ const DICT_MAX_RECOMMEND = 5;
 
 // Configuração de expansão de contexto
 const EXPAND_CONTEXT = true;
-const ADJACENT_RANGE = 0;
+const ADJACENT_RANGE = 1;
 const TOP_PAGES_TO_SELECT = 5;  // ✅ Aumentado de 3 para 5 (página 915 está no 5º lugar)
 
 // ==== Sistema de Logging ====
