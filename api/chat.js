@@ -178,71 +178,162 @@ function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE)
   return Array.from(expandedSet).sort((a, b) => a - b);
 }
 
-// ==== Busca no Sumário ====
-function buildSummaryIndex(sumario) {
-  const index = new Map();
-  const addKey = (key, pages) => {
-    const k = normalizeStr(key).trim();
-    if (!k) return;
-    const set = index.get(k) || new Set();
-    (pages || []).forEach(p => set.add(p));
-    index.set(k, set);
-  };
+// ==== NOVA FUNÇÃO: Busca Semântica no Sumário com OpenAI ====
+async function semanticSearchSummary(sumario, question) {
+  try {
+    logSection("Busca Semântica no Sumário - Início");
+    
+    // 1. Preparar estrutura simplificada do sumário para o modelo
+    const summaryStructure = sumario.map(secao => {
+      const categorias = (secao.categorias || []).map(cat => {
+        const topicos = (cat.topicos || []).map(top => {
+          const subtopicos = (top.subtopicos || []).map(sub => ({
+            titulo: sub.titulo,
+            paginas: sub.paginas || []
+          }));
+          
+          return {
+            topico: top.topico,
+            paginas: top.paginas || [],
+            subtopicos
+          };
+        });
+        
+        return {
+          categoria: cat.categoria,
+          paginas: cat.paginas || [],
+          topicos
+        };
+      });
+      
+      return {
+        secao: secao.secao,
+        categorias
+      };
+    });
 
-  for (const top of sumario || []) {
-    const topPages = top?.paginas || [];
-    if (top?.topico) addKey(top.topico, topPages);
+    // 2. Criar prompt para o modelo identificar seções relevantes
+    const systemPrompt = `Você é um especialista em medicina de emergência e terapia intensiva.
 
-    for (const st of top?.subtopicos || []) {
-      const stPages = (st?.paginas && st.paginas.length ? st.paginas : topPages);
-      if (st?.titulo) {
-        addKey(st.titulo, stPages);
-        const tokens = normalizeStr(st.titulo).split(/\W+/).filter(Boolean);
-        if (tokens.length >= 2) {
-          const acronym = tokens.map(w => w[0]).join("");
-          addKey(acronym, stPages);
-        }
-      }
+Sua tarefa é analisar uma pergunta do usuário e identificar quais seções, categorias, tópicos e subtópicos de um sumário de livro são relevantes para responder essa pergunta.
+
+IMPORTANTE:
+- Considere sinônimos médicos (ex: PCR = parada cardiorrespiratória = parada cardíaca)
+- Considere abreviações comuns (ex: IAM, AVC, TEP, etc)
+- Pense em contexto clínico amplo (ex: "dor no peito" pode relacionar-se com IAM, dissecção de aorta, embolia pulmonar)
+- Seja inclusivo: se houver dúvida se um tópico é relevante, inclua-o
+- SEMPRE considere que a pergunta é sobre adultos, a menos que especifique pediatria
+
+Responda EXCLUSIVAMENTE em JSON seguindo este formato:
+{
+  "relevant_paths": [
+    {
+      "secao": "nome da seção",
+      "categoria": "nome da categoria",
+      "topico": "nome do tópico (ou null se toda categoria é relevante)",
+      "subtopico": "nome do subtópico (ou null se todo tópico é relevante)",
+      "reasoning": "breve explicação de por que é relevante"
     }
-  }
-
-  const findPagesBySubtopicTitle = (needleNorm) => {
-    for (const top of sumario || []) {
-      for (const st of top?.subtopicos || []) {
-        if (normalizeStr(st?.titulo || "") === needleNorm) {
-          return st?.paginas || [];
-        }
-      }
-    }
-    return [];
-  };
-
-  const rcpPages = findPagesBySubtopicTitle("ressuscitacao cardiopulmonar");
-  if (rcpPages.length) {
-    [
-      "massagem cardiaca",
-      "compressao toracica",
-      "compressoes toracicas",
-      "cpr",
-      "parada cardiorrespiratoria",
-      "ressuscitacao cardiopulmonar",
-      "rcp"
-    ].forEach(k => addKey(k, rcpPages));
-  }
-
-  return index;
+  ]
 }
 
-function searchSummary(sumario, query) {
-  const idx = buildSummaryIndex(sumario);
-  const nq = normalizeStr(query);
-  const hits = new Set();
-  for (const [key, pages] of idx.entries()) {
-    if (key && nq.includes(key)) {
-      pages.forEach(p => hits.add(p));
+Se nenhuma seção for claramente relevante, retorne: {"relevant_paths": []}`;
+
+    const userPrompt = `Pergunta do usuário: """${question}"""
+
+Estrutura do sumário:
+${JSON.stringify(summaryStructure, null, 2)}
+
+Identifique quais partes do sumário são relevantes para responder a pergunta.`;
+
+    const chatReq = {
+      model: CHAT_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0,
+      top_p: 1,
+      max_tokens: 2000,
+      seed: seedFromString(question + "|summary")
+    };
+
+    logOpenAIRequest("chat.completions.create [semantic_summary]", chatReq);
+    const t0 = Date.now();
+    const resp = await openai.chat.completions.create(chatReq);
+    const ms = Date.now() - t0;
+    logOpenAIResponse("chat.completions.create [semantic_summary]", resp, { duration_ms: ms });
+
+    // 3. Parsear resposta e extrair páginas
+    const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
+    let relevantPaths = [];
+    
+    try {
+      const m = raw.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(m ? m[0] : raw);
+      relevantPaths = parsed.relevant_paths || [];
+    } catch (e) {
+      logSection("Busca Semântica no Sumário - Erro ao parsear JSON");
+      logObj("error", String(e));
+      logObj("raw_response", raw);
+      return { pages: [], paths: [] };
     }
+
+    logSection("Busca Semântica no Sumário - Caminhos Identificados");
+    logObj("relevant_paths", relevantPaths);
+
+    // 4. Coletar todas as páginas dos caminhos identificados
+    const pagesSet = new Set();
+    
+    for (const path of relevantPaths) {
+      // Navegar pela estrutura do sumário para encontrar as páginas corretas
+      for (const secao of sumario) {
+        if (path.secao && normalizeStr(secao.secao) !== normalizeStr(path.secao)) continue;
+        
+        for (const cat of secao.categorias || []) {
+          if (path.categoria && normalizeStr(cat.categoria) !== normalizeStr(path.categoria)) continue;
+          
+          // Se não especificou tópico, pega todas as páginas da categoria
+          if (!path.topico) {
+            (cat.paginas || []).forEach(p => pagesSet.add(p));
+            continue;
+          }
+          
+          for (const top of cat.topicos || []) {
+            if (path.topico && normalizeStr(top.topico) !== normalizeStr(path.topico)) continue;
+            
+            // Se não especificou subtópico, pega todas as páginas do tópico
+            if (!path.subtopico) {
+              (top.paginas || []).forEach(p => pagesSet.add(p));
+              continue;
+            }
+            
+            for (const sub of top.subtopicos || []) {
+              if (path.subtopico && normalizeStr(sub.titulo) !== normalizeStr(path.subtopico)) continue;
+              (sub.paginas || []).forEach(p => pagesSet.add(p));
+            }
+          }
+        }
+      }
+    }
+
+    const pages = Array.from(pagesSet).sort((a, b) => a - b);
+    
+    logSection("Busca Semântica no Sumário - Resultado Final");
+    logObj("pages_found", pages);
+    logObj("count", pages.length);
+    logObj("reasoning_summary", relevantPaths.map(p => ({
+      path: `${p.categoria || 'ALL'} > ${p.topico || 'ALL'} > ${p.subtopico || 'ALL'}`,
+      reason: p.reasoning
+    })));
+
+    return { pages, paths: relevantPaths };
+    
+  } catch (e) {
+    logSection("Busca Semântica no Sumário - Erro");
+    logObj("error", String(e));
+    return { pages: [], paths: [] };
   }
-  return Array.from(hits).sort((a, b) => a - b);
 }
 
 // ==== Funções de Dicionário ====
@@ -470,7 +561,7 @@ export const config = {
   api: { bodyParser: { sizeLimit: "25mb" } }
 };
 
-// ==== HANDLER PRINCIPAL (OTIMIZADO) ====
+// ==== HANDLER PRINCIPAL (COM BUSCA SEMÂNTICA NO SUMÁRIO) ====
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
@@ -513,15 +604,15 @@ export default async function handler(req, res) {
 
     logObj("pages_loaded", pages.length);
     logObj("embeddings_loaded", pageEmbeddings.length);
+    logObj("sumario_sections", sumario.length);
 
     // ============================================
-    // 2️⃣ BUSCA NO SUMÁRIO PRIMEIRO (OTIMIZAÇÃO)
+    // 2️⃣ BUSCA SEMÂNTICA NO SUMÁRIO (COM OPENAI)
     // ============================================
-    logSection("Etapa 2: Busca no sumário");
-    const pagesFromSummary = searchSummary(sumario, question);
-    
-    logObj("pagesFromSummary", pagesFromSummary);
-    logObj("count", pagesFromSummary.length);
+    logSection("Etapa 2: Busca semântica no sumário");
+    const summaryResult = await semanticSearchSummary(sumario, question);
+    const pagesFromSummary = summaryResult.pages || [];
+    const relevantPaths = summaryResult.paths || [];
 
     // ============================================
     // 3️⃣ DEFINE ESCOPO DE CANDIDATOS (ANTES DO EMBEDDING)
@@ -546,8 +637,9 @@ export default async function handler(req, res) {
       
       searchScope = "scoped";
       
-      logSection("Etapa 3: Escopo restrito por sumário");
-      logObj("strategy", "busca focada em capítulos relevantes");
+      logSection("Etapa 3: Escopo restrito por sumário semântico");
+      logObj("strategy", "busca focada em capítulos identificados por IA");
+      logObj("relevant_paths_found", relevantPaths.length);
       logObj("candidatePages", candidatePages);
       logObj("count", candidatePages.length);
       
@@ -560,7 +652,7 @@ export default async function handler(req, res) {
       searchScope = "global";
       
       logSection("Etapa 3: Escopo global (fallback)");
-      logObj("strategy", "sumário não retornou resultados - busca global");
+      logObj("strategy", "sumário semântico não retornou resultados - busca global");
       logObj("candidatePages_count", candidatePages.length);
     }
 
@@ -636,7 +728,7 @@ export default async function handler(req, res) {
       const embNorm = (r.embScore - minEmb) / (Math.max(1e-8, maxEmb - minEmb));
       const lexNorm = maxLex > 0 ? r.lexScore / maxLex : 0;
 
-      // Boost para páginas centrais do sumário
+      // Boost para páginas identificadas pelo sumário semântico
       const summaryBoost = r.inSummary 
         ? (searchScope === "scoped" ? 0.3 : 0.08) 
         : 0;
@@ -658,6 +750,7 @@ export default async function handler(req, res) {
         answer: "Não encontrei conteúdo no livro.",
         used_pages: [],
         search_scope: searchScope,
+        semantic_paths: relevantPaths,
         question_used: question,
         logs: getLogs()
       });
@@ -699,6 +792,7 @@ export default async function handler(req, res) {
         answer: "Não encontrei conteúdo no livro.",
         used_pages: [],
         search_scope: searchScope,
+        semantic_paths: relevantPaths,
         question_used: question,
         logs: getLogs()
       });
@@ -811,6 +905,10 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
       original_pages: selectedPages,
       expanded_context: EXPAND_CONTEXT,
       search_scope: searchScope,
+      semantic_paths: relevantPaths.map(p => ({
+        path: `${p.secao} > ${p.categoria} > ${p.topico || 'ALL'} > ${p.subtopico || 'ALL'}`,
+        reasoning: p.reasoning
+      })),
       efficiency_metrics: {
         candidates_evaluated: candidatePages.length,
         total_pages: pageEmbeddings.length,
