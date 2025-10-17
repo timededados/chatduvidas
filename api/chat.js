@@ -23,7 +23,8 @@ const DICT_MAX_RECOMMEND = 5;
 
 // Configuração de expansão de contexto
 const EXPAND_CONTEXT = true;
-const ADJACENT_RANGE = 1;
+const ADJACENT_RANGE = 2;  // ✅ Aumentado de 1 para 2 (±2 páginas)
+const TOP_PAGES_TO_SELECT = 4;  // ✅ Novo: selecionar TOP 4 em vez de TOP 2
 
 // ==== Sistema de Logging ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
@@ -621,11 +622,12 @@ export default async function handler(req, res) {
     let searchScope = "global";
     
     if (pagesFromSummary.length > 0) {
-      // Expande páginas do sumário com contexto adjacente (±2 páginas)
+      // Expande páginas do sumário com contexto adjacente mais amplo (±3 páginas)
+      // ✅ Quando temos confiança semântica, podemos incluir mais contexto
       const expandedSet = new Set();
       for (const p of pagesFromSummary) {
         expandedSet.add(p);
-        [-2, -1, 1, 2].forEach(offset => {
+        [-3, -2, -1, 1, 2, 3].forEach(offset => {
           const adjacent = p + offset;
           if (pageMap.has(adjacent)) expandedSet.add(adjacent);
         });
@@ -757,13 +759,19 @@ export default async function handler(req, res) {
     }
 
     if (ranked.length) {
-      const top3 = ranked.slice(0, 3);
-      logObj("top_3_pages", top3.map(r => ({
+      const top10 = ranked.slice(0, Math.min(10, ranked.length));
+      logObj("top_10_pages_ranked", top10.map(r => ({
         pagina: r.pagina,
         finalScore: r.finalScore.toFixed(3),
         embScore: r.embScore.toFixed(3),
         lexScore: r.lexScore,
         inSummary: r.inSummary
+      })));
+      
+      logSection("Top 3 para referência rápida");
+      logObj("top_3_summary", top10.slice(0, 3).map(r => ({
+        pagina: r.pagina,
+        score: r.finalScore.toFixed(3)
       })));
     }
 
@@ -772,7 +780,8 @@ export default async function handler(req, res) {
     // ============================================
     logSection("Etapa 7: Seleção e expansão de páginas");
     
-    const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
+    // ✅ Aumentado para TOP 4 páginas para melhor cobertura
+    const selectedPages = ranked.slice(0, Math.min(TOP_PAGES_TO_SELECT, ranked.length)).map(r => r.pagina);
     
     let finalPages;
     if (EXPAND_CONTEXT) {
@@ -812,6 +821,20 @@ export default async function handler(req, res) {
     
     logObj("context_length", contextText.length);
     logObj("context_preview", truncate(contextText, 1000));
+    
+    // ✅ Verificação de qualidade do contexto
+    const qNormCheck = normalizeStr(question);
+    const contextNorm = normalizeStr(contextText);
+    const qTokensInContext = qTokens.filter(token => contextNorm.includes(token));
+    
+    logSection("Qualidade do contexto");
+    logObj("query_tokens", qTokens);
+    logObj("tokens_found_in_context", qTokensInContext);
+    logObj("coverage", `${((qTokensInContext.length / qTokens.length) * 100).toFixed(0)}%`);
+    
+    if (qTokensInContext.length < qTokens.length * 0.3) {
+      logLine("⚠️ AVISO: Baixa cobertura de tokens da pergunta no contexto. Resposta pode ser imprecisa.");
+    }
 
     // ============================================
     // 9️⃣ PROMPT E GERAÇÃO
@@ -819,22 +842,21 @@ export default async function handler(req, res) {
     logSection("Etapa 9: Geração de resposta");
     
     const systemInstruction = `
-Você é um assistente que responde exclusivamente com trechos literais de um livro-base.
+Você é um assistente que responde EXCLUSIVAMENTE com trechos literais de um livro-base.
 
 Regras obrigatórias:
 - SEMPRE considere que a pergunta é referente a adultos, ou seja, ignore conteúdo pediátrico se não foi solicitado.
-- NÃO explique, NÃO resuma, NÃO interprete, NÃO altere palavras.
-- Responda SOMENTE com as citações literais extraídas do livro fornecido.
-- Inclua cada trecho exatamente como está no texto original.
-- Identifique cada trecho com o número da página (ex: "- Página 694: \"trecho...\"").
-- NÃO adicione frases introdutórias, comentários ou resumos.
-- Se houver mais de um trecho relevante, liste-os em ordem crescente de página.
+- NÃO explique, NÃO resuma, NÃO interprete, NÃO altere palavras, NÃO sintetize.
+- Responda SOMENTE com recortes LITERAIS e EXATOS extraídos do livro fornecido.
+- Copie cada trecho exatamente como está escrito no texto original, palavra por palavra.
+- Identifique cada trecho com o número da página (ex: "- Página 694: \"trecho literal...\"").
+- Se houver múltiplos trechos relevantes em páginas diferentes, liste todos.
+- NÃO adicione frases introdutórias, comentários, conexões ou resumos.
 - Se não houver trechos claramente relevantes, responda apenas "Nenhum trecho encontrado no livro.".
 
-Formato final da resposta:
-- Página N: "trecho literal 1"
-- Página M: "trecho literal 2"
-Trechos do livro-base do curso.
+Formato obrigatório da resposta:
+- Página N: "recorte literal exato do livro"
+- Página M: "outro recorte literal exato do livro"
 `.trim();
 
     const userPrompt = `
