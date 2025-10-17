@@ -270,7 +270,7 @@ Se nada for relevante: {"relevant_indices": []}`;
     const userPrompt = `Pergunta do usuário: """${question}"""
 
 Estrutura do sumário:
-${JSON.stringify(summaryStructure, null, 2)}
+${JSON.stringify(flatStructure, null, 2)}
 
 Identifique quais partes do sumário são relevantes para responder a pergunta.`;
 
