@@ -247,6 +247,8 @@ async function semanticSearchSummary(sumario, question) {
     ));
 
     // 2. Criar prompt focado APENAS em categorias/tópicos/subtópicos
+    logSection("Busca Semântica no Sumário - Preparando Prompt");
+    
     const systemPrompt = `Você é um especialista em medicina de emergência e terapia intensiva.
 
 Sua tarefa é identificar quais categorias, tópicos e subtópicos de um índice médico são relevantes para responder a pergunta do usuário.
@@ -291,7 +293,10 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
     logOpenAIResponse("chat.completions.create [semantic_summary]", resp, { duration_ms: ms });
 
     // 3. Parsear resposta e extrair páginas
+    logSection("Busca Semântica no Sumário - Parseando Resposta");
     const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
+    logObj("raw_response_preview", truncate(raw, 500));
+    
     let relevantIndices = [];
     
     try {
@@ -300,31 +305,39 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
       relevantIndices = parsed.relevant_indices || [];
     } catch (e) {
       logSection("Busca Semântica no Sumário - Erro ao parsear JSON");
-      logObj("error", String(e));
+      logObj("parse_error", String(e));
       logObj("raw_response", raw);
       return { pages: [], paths: [] };
     }
 
     logSection("Busca Semântica no Sumário - Índices Identificados");
     logObj("relevant_indices", relevantIndices);
+    logObj("count", relevantIndices.length);
 
     // 4. Coletar páginas dos índices identificados
+    logSection("Busca Semântica no Sumário - Coletando Páginas");
     const pagesSet = new Set();
     const relevantPaths = [];
     
-    for (const idx of relevantIndices) {
-      if (idx >= 0 && idx < flatStructure.length) {
-        const item = flatStructure[idx];
-        (item.paginas || []).forEach(p => pagesSet.add(p));
-        
-        relevantPaths.push({
-          secao: item._secao,
-          categoria: item.categoria,
-          topico: item.topico,
-          subtopico: item.subtopico,
-          reasoning: `Índice ${idx}: ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`
-        });
+    try {
+      for (const idx of relevantIndices) {
+        if (idx >= 0 && idx < flatStructure.length) {
+          const item = flatStructure[idx];
+          (item.paginas || []).forEach(p => pagesSet.add(p));
+          
+          relevantPaths.push({
+            secao: item._secao,
+            categoria: item.categoria,
+            topico: item.topico,
+            subtopico: item.subtopico,
+            reasoning: `Índice ${idx}: ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`
+          });
+        }
       }
+    } catch (collectionError) {
+      logSection("Busca Semântica no Sumário - Erro ao coletar páginas");
+      logObj("error", String(collectionError));
+      return { pages: [], paths: [] };
     }
 
     const pages = Array.from(pagesSet).sort((a, b) => a - b);
