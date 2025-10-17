@@ -17,15 +17,15 @@ const CHAT_MODEL = "gpt-4o-mini";
 const TOP_K = 6;
 const MAX_CONTEXT_TOKENS = 3000;
 
-// +++ Novo: limites para recomendação do dicionário +++
-const DICT_MAX_CANDIDATES = 20;   // candidatos enviados ao modelo
-const DICT_MAX_RECOMMEND = 5;     // máximo de recomendações finais
+// Limites para recomendação do dicionário
+const DICT_MAX_CANDIDATES = 20;
+const DICT_MAX_RECOMMEND = 5;
 
-// +++ NOVO: Configuração de expansão de contexto +++
-const EXPAND_CONTEXT = true;      // Ativar expansão de páginas adjacentes
-const ADJACENT_RANGE = 1;         // Quantas páginas antes/depois incluir (1 = uma antes e uma depois)
+// Configuração de expansão de contexto
+const EXPAND_CONTEXT = true;
+const ADJACENT_RANGE = 1;
 
-// ==== Logging helpers (added) ====
+// ==== Sistema de Logging ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
 const TRUNC_LIMIT = 800;
 const als = new AsyncLocalStorage();
@@ -34,21 +34,27 @@ function truncate(str, n = TRUNC_LIMIT) {
   if (typeof str !== "string") return str;
   return str.length > n ? str.slice(0, n) + `... [${str.length - n} more chars]` : str;
 }
+
 function logSection(title) {
   const store = als.getStore();
   if (!(store && store.enabled)) return;
   if (store.logs) store.logs.push(`=== ${title} ===`);
   console.log(`\n=== ${title} ===`);
 }
+
 function logObj(label, obj) {
   const store = als.getStore();
   if (!(store && store.enabled)) return;
   let rendered;
-  try { rendered = JSON.stringify(obj, null, 2); } catch { rendered = String(obj); }
+  try { 
+    rendered = JSON.stringify(obj, null, 2); 
+  } catch { 
+    rendered = String(obj); 
+  }
   if (store.logs) store.logs.push(`${label}: ${rendered}`);
   console.log(label, rendered);
 }
-// Novo helper opcional para linhas simples
+
 function logLine(...args) {
   const store = als.getStore();
   if (!(store && store.enabled)) return;
@@ -59,6 +65,7 @@ function logLine(...args) {
   store.logs.push(msg);
   console.log(msg);
 }
+
 function logOpenAIRequest(kind, payload) {
   const store = als.getStore();
   if (!(store && store.enabled)) return;
@@ -73,6 +80,7 @@ function logOpenAIRequest(kind, payload) {
   logSection(`Requisição OpenAI: ${kind}`);
   logObj("payload", clone);
 }
+
 function logOpenAIResponse(kind, resp, extra = {}) {
   const store = als.getStore();
   if (!(store && store.enabled)) return;
@@ -94,45 +102,46 @@ function logOpenAIResponse(kind, resp, extra = {}) {
   logSection(`Resposta OpenAI: ${kind}`);
   logObj("data", safe);
 }
-// ==== End logging helpers ====
 
-// ---------- Funções auxiliares ----------
+// ==== Funções Auxiliares de Processamento ====
 function dot(a, b) {
   return a.reduce((s, v, i) => s + v * b[i], 0);
 }
+
 function norm(a) {
   return Math.sqrt(a.reduce((s, x) => s + x * x, 0));
 }
+
 function cosineSim(a, b) {
   return dot(a, b) / (norm(a) * norm(b) + 1e-8);
 }
 
-// Determinismo e normalização simples
 function seedFromString(s) {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
   return Math.abs(h >>> 0);
 }
+
 function normalizeStr(s) {
   return (s || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
+
 function countOccurrences(text, token) {
   if (!token) return 0;
   const re = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
   return (text.match(re) || []).length;
 }
 
-// Novo: extrai páginas citadas no texto final (ex.: "Página 10", "(p. 10)")
 function extractCitedPages(text) {
   if (!text) return [];
   const set = new Set();
   const patterns = [
-    /página\s+(\d+)/gi,    // "Página 123"
-    /pagina\s+(\d+)/gi,    // "Pagina 123" (sem acento)
-    /\(p\.\s*(\d+)\)/gi    // "(p. 123)"
+    /página\s+(\d+)/gi,
+    /pagina\s+(\d+)/gi,
+    /\(p\.\s*(\d+)\)/gi
   ];
   for (const re of patterns) {
     let m;
@@ -144,15 +153,13 @@ function extractCitedPages(text) {
   return Array.from(set).sort((a, b) => a - b);
 }
 
-// +++ NOVA FUNÇÃO: Expande páginas com adjacentes +++
+// ==== Expansão de Páginas Adjacentes ====
 function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE) {
   const expandedSet = new Set();
   
   for (const page of selectedPages) {
-    // Adiciona a página original
     expandedSet.add(page);
     
-    // Adiciona páginas anteriores
     for (let i = 1; i <= range; i++) {
       const prevPage = page - i;
       if (pageMap.has(prevPage)) {
@@ -160,7 +167,6 @@ function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE)
       }
     }
     
-    // Adiciona páginas posteriores
     for (let i = 1; i <= range; i++) {
       const nextPage = page + i;
       if (pageMap.has(nextPage)) {
@@ -169,11 +175,10 @@ function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE)
     }
   }
   
-  // Retorna array ordenado
   return Array.from(expandedSet).sort((a, b) => a - b);
 }
 
-// Adicionado: funções de busca no sumário (faltavam)
+// ==== Busca no Sumário ====
 function buildSummaryIndex(sumario) {
   const index = new Map();
   const addKey = (key, pages) => {
@@ -240,7 +245,7 @@ function searchSummary(sumario, query) {
   return Array.from(hits).sort((a, b) => a - b);
 }
 
-// +++ Novo: helpers para recomendação do dicionário +++
+// ==== Funções de Dicionário ====
 function buildBaseUrl(req) {
   const proto = req.headers["x-forwarded-proto"] || "http";
   const host = req.headers.host || "localhost";
@@ -257,7 +262,6 @@ function scoreDictItem(item, qTokens) {
   const text = normalizeStr(parts.join(" | "));
   let score = 0;
   for (const t of qTokens) {
-    // prioriza match de tokens do título e tags
     const inTitulo = countOccurrences(normalizeStr(item.titulo || ""), t);
     const inTags = countOccurrences(normalizeStr((item.tags || []).join(" ")), t);
     const inRest = countOccurrences(text, t);
@@ -274,15 +278,17 @@ function pickTopDictCandidates(items, question, limit = DICT_MAX_CANDIDATES) {
   return withScores.slice(0, limit).map(x => x.it);
 }
 
-// Adicionado: helpers para escapar HTML/atributos
+// ==== Funções de HTML ====
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+  return String(s).replace(/[&<>"']/g, c => ({ 
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" 
+  }[c]));
 }
+
 function escapeAttr(s) {
   return String(s).replace(/"/g, "&quot;");
 }
 
-// +++ Novo: mapeia tipo de conteúdo -> rótulo e estilo do botão
 function buttonForType(tipoRaw, isPremium) {
   const tipo = String(tipoRaw || "").toLowerCase();
   if (tipo.includes("podteme")) return { label: "🎧 Ouvir episódio", kind: "primary" };
@@ -293,7 +299,6 @@ function buttonForType(tipoRaw, isPremium) {
   return { label: "🔗 Acessar conteúdo", kind: isPremium ? "premium" : "primary" };
 }
 
-// +++ LAYOUT CORRIGIDO: HTML compacto e limpo
 function btnStyle(kind) {
   const base = "display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:500;font-size:13px;border:1px solid;cursor:pointer;";
   if (kind === "accent") return base + "background:rgba(56,189,248,0.08);border-color:rgba(56,189,248,0.25);color:#38bdf8;";
@@ -301,7 +306,6 @@ function btnStyle(kind) {
   return base + "background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);color:#22c55e;";
 }
 
-// +++ LAYOUT CORRIGIDO: renderiza lista de itens com HTML mínimo
 function renderDictItemsList(items, isPremiumSection) {
   if (!items.length) return "";
   
@@ -313,7 +317,6 @@ function renderDictItemsList(items, isPremiumSection) {
     const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank"` : "";
     const btn = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
     
-    // Adiciona badges para conteúdo premium
     const badges = isPremiumSection ? 
       `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Carga horária: 12h</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Aulas on-demand</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Certificado</span></div>` : "";
     
@@ -326,15 +329,11 @@ function renderDictItemsList(items, isPremiumSection) {
   return `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${label}</span><div style="margin-top:10px">${itemsHtml}</div></section>`;
 }
 
-// +++ LAYOUT CORRIGIDO: HTML final ultra compacto
 function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
-  // Header conciso com cores ajustadas para fundo verde
   const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600;color:#1a1a1a">Encontrei a informação que responde à sua dúvida 👇</h1></header>`;
 
-  // Livro - seção principal
   const bookSection = `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>Livro (fonte principal)</span><div style="position:relative;padding:12px 14px;border-left:3px solid #38bdf8;background:rgba(56,189,248,0.06);border-radius:6px;line-height:1.5;margin-top:10px"><div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div><small style="display:block;color:#94a3b8;margin-top:6px;font-size:11px">Trechos do livro-base do curso.</small></div></section>`;
 
-  // Separar e renderizar itens
   const freeItems = (dictItems || []).filter(x => !x.pago);
   const premiumItems = (dictItems || []).filter(x => x.pago);
   
@@ -345,7 +344,7 @@ function renderFinalHtml({ bookAnswer, citedPages, dictItems }) {
   return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${content}</div>`;
 }
 
-// Adicionado: recomendação a partir do dicionário (retorna apenas os itens selecionados)
+// ==== Recomendação de Dicionário ====
 async function recommendFromDictionary(req, question) {
   try {
     const baseUrl = buildBaseUrl(req);
@@ -357,12 +356,10 @@ async function recommendFromDictionary(req, question) {
     logSection("Dicionário - total carregado");
     logObj("count", dictItems.length);
 
-    // pré-filtro lexical
     const candidates = pickTopDictCandidates(dictItems, question, DICT_MAX_CANDIDATES);
     logSection("Dicionário - candidatos enviados ao modelo");
     logObj("candidates_count", candidates.length);
 
-    // payload enxuto para o modelo
     const slim = candidates.map(it => ({
       id: it.id,
       titulo: it.titulo,
@@ -435,12 +432,7 @@ ${JSON.stringify(slim, null, 2)}
   }
 }
 
-// Para ambientes Next.js / Vercel: aumentar limite do body para áudio base64
-export const config = {
-  api: { bodyParser: { sizeLimit: "25mb" } }
-};
-
-// Adicionado: transcrição de áudio base64 com gpt-4o-mini-transcribe
+// ==== Transcrição de Áudio ====
 async function transcribeBase64AudioToText(audioStr, mime = "audio/webm") {
   try {
     logSection("Transcrição de áudio");
@@ -473,36 +465,40 @@ async function transcribeBase64AudioToText(audioStr, mime = "audio/webm") {
   }
 }
 
-// ---------- Função principal ----------
+// ==== Configuração para Next.js ====
+export const config = {
+  api: { bodyParser: { sizeLimit: "25mb" } }
+};
+
+// ==== HANDLER PRINCIPAL (OTIMIZADO) ====
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  // Sempre habilitar logs para expor toda a interação
-  // const forceDebug = /^(1|true|yes|on)$/i.test(String(req.query?.debug ?? req.body?.debug ?? ""));
+  // Habilita logs sempre
   als.enterWith({ logs: [], enabled: true });
   const getLogs = () => (als.getStore()?.logs || []);
 
   try {
-    // Novo: aceitar pergunta por voz (base64/data URL)
+    // Processar entrada (texto ou áudio)
     const { question: questionRaw, audio, audio_mime } = req.body || {};
     let question = String(questionRaw || "").trim();
+    
     if (!question && audio) {
       logSection("Entrada de áudio detectada");
       question = await transcribeBase64AudioToText(audio, audio_mime || "audio/webm");
     }
-    if (!question || !question.trim())
+    
+    if (!question || !question.trim()) {
       return res.status(400).json({ error: "Pergunta vazia", logs: getLogs() });
-
-    const storeEnabled = als.getStore()?.enabled;
-    if (storeEnabled) {
-      logSection("Pergunta recebida");
-      logObj("question", question);
     }
 
-    // 1️⃣ Remover geração de variações estocásticas (multi-query) para evitar flutuação
-    const variations = [question]; // consulta única e determinística
+    logSection("Pergunta recebida");
+    logObj("question", question);
 
-    // 2️⃣ Carrega dados (inalterado)
+    // ============================================
+    // 1️⃣ CARREGA DADOS
+    // ============================================
+    logSection("Etapa 1: Carregamento de dados");
     const [bookRaw, embRaw, sumRaw] = await Promise.all([
       fs.readFile(BOOK_PATH, "utf8"),
       fs.readFile(EMB_PATH, "utf8"),
@@ -513,160 +509,221 @@ export default async function handler(req, res) {
     const sumario = JSON.parse(sumRaw);
 
     const pageMap = new Map(pages.map(p => [p.pagina, p.texto]));
+    const embByPage = new Map(pageEmbeddings.map(pe => [pe.pagina, pe.embedding]));
 
-    // 3️⃣ Busca no sumário (reforçada com acrônimos/sinônimos)
-    const pagesFromSummary = (typeof searchSummary === "function")
-      ? searchSummary(sumario, question)
-      : [];
-    if (als.getStore()?.enabled) {
-      logSection("Páginas do sumário");
-      logObj("pagesFromSummary", pagesFromSummary);
+    logObj("pages_loaded", pages.length);
+    logObj("embeddings_loaded", pageEmbeddings.length);
+
+    // ============================================
+    // 2️⃣ BUSCA NO SUMÁRIO PRIMEIRO (OTIMIZAÇÃO)
+    // ============================================
+    logSection("Etapa 2: Busca no sumário");
+    const pagesFromSummary = searchSummary(sumario, question);
+    
+    logObj("pagesFromSummary", pagesFromSummary);
+    logObj("count", pagesFromSummary.length);
+
+    // ============================================
+    // 3️⃣ DEFINE ESCOPO DE CANDIDATOS (ANTES DO EMBEDDING)
+    // ============================================
+    let candidatePages;
+    let searchScope = "global";
+    
+    if (pagesFromSummary.length > 0) {
+      // Expande páginas do sumário com contexto adjacente (±2 páginas)
+      const expandedSet = new Set();
+      for (const p of pagesFromSummary) {
+        expandedSet.add(p);
+        [-2, -1, 1, 2].forEach(offset => {
+          const adjacent = p + offset;
+          if (pageMap.has(adjacent)) expandedSet.add(adjacent);
+        });
+      }
+      
+      candidatePages = Array.from(expandedSet)
+        .filter(p => embByPage.has(p))
+        .sort((a, b) => a - b);
+      
+      searchScope = "scoped";
+      
+      logSection("Etapa 3: Escopo restrito por sumário");
+      logObj("strategy", "busca focada em capítulos relevantes");
+      logObj("candidatePages", candidatePages);
+      logObj("count", candidatePages.length);
+      
+    } else {
+      // Fallback: busca global se sumário não encontrou nada
+      candidatePages = pageEmbeddings
+        .map(pe => pe.pagina)
+        .filter(p => pageMap.has(p));
+      
+      searchScope = "global";
+      
+      logSection("Etapa 3: Escopo global (fallback)");
+      logObj("strategy", "sumário não retornou resultados - busca global");
+      logObj("candidatePages_count", candidatePages.length);
     }
 
-    // 4️⃣ Consulta de embedding única
+    // ============================================
+    // 4️⃣ SÓ AGORA GERA EMBEDDING DA PERGUNTA
+    // ============================================
+    logSection("Etapa 4: Geração de embedding (escopo já definido)");
     const embReq = { model: EMB_MODEL, input: question };
     logOpenAIRequest("embeddings.create", embReq);
+    
     const tEmb0 = Date.now();
     const qEmbResp = await openai.embeddings.create(embReq);
     const embMs = Date.now() - tEmb0;
+    
     logOpenAIResponse("embeddings.create", qEmbResp, {
       duration_ms: embMs,
-      embedding_dim: qEmbResp.data?.[0]?.embedding?.length
+      embedding_dim: qEmbResp.data?.[0]?.embedding?.length,
+      search_scope: searchScope,
+      candidates_to_compare: candidatePages.length
     });
+    
     const queryEmb = qEmbResp.data[0].embedding;
 
+    // ============================================
+    // 5️⃣ CALCULA SIMILARIDADE (APENAS NOS CANDIDATOS)
+    // ============================================
+    logSection("Etapa 5: Cálculo de similaridade (otimizado)");
+    
     const qNorm = normalizeStr(question);
     const qTokens = Array.from(
       new Set(qNorm.split(/\W+/).filter(t => t && t.length > 2))
     );
 
-    // 4.1️⃣ Define conjunto de candidatos:
-    // - Se achou páginas no sumário, restringe a elas e vizinhas (±2) para evitar desvio para seções distantes.
-    // - Caso contrário, considera todas as páginas.
-    const embByPage = new Map(pageEmbeddings.map(pe => [pe.pagina, pe.embedding]));
-    let candidatePages;
-    if (pagesFromSummary.length) {
-      const s = new Set();
-      for (const p of pagesFromSummary) {
-        s.add(p);
-        s.add(p - 2); s.add(p - 1); s.add(p + 1); s.add(p + 2);
-      }
-      candidatePages = Array.from(s).filter(p => pageMap.has(p) && embByPage.has(p));
-    } else {
-      candidatePages = pageEmbeddings.map(pe => pe.pagina).filter(p => pageMap.has(p));
-    }
-    if (als.getStore()?.enabled) {
-      logSection("Candidatos (embedding)");
-      logObj("candidatePages_count", candidatePages.length);
-    }
-
-    // Calcular scores por página (apenas nos candidatos)
     let minEmb = Infinity, maxEmb = -Infinity, maxLex = 0;
     const prelim = [];
+    
     for (const pg of candidatePages) {
       const peEmb = embByPage.get(pg);
       if (!peEmb) continue;
+      
       const embScore = cosineSim(queryEmb, peEmb);
       const raw = pageMap.get(pg) || "";
       const txt = normalizeStr(raw);
+      
       let lexScore = 0;
-      for (const t of qTokens) lexScore += countOccurrences(txt, t);
+      for (const t of qTokens) {
+        lexScore += countOccurrences(txt, t);
+      }
+      
       prelim.push({
         pagina: pg,
         embScore,
         lexScore,
         inSummary: pagesFromSummary.includes(pg)
       });
+      
       if (embScore < minEmb) minEmb = embScore;
       if (embScore > maxEmb) maxEmb = embScore;
       if (lexScore > maxLex) maxLex = lexScore;
     }
 
+    logObj("comparisons_made", prelim.length);
+    logObj("efficiency_gain", searchScope === "scoped" 
+      ? `${((1 - candidatePages.length / pageEmbeddings.length) * 100).toFixed(1)}% menos comparações`
+      : "busca completa necessária");
+
+    // ============================================
+    // 6️⃣ RANKING FINAL
+    // ============================================
+    logSection("Etapa 6: Ranking final");
+    
     const ranked = prelim.map(r => {
       const embNorm = (r.embScore - minEmb) / (Math.max(1e-8, maxEmb - minEmb));
       const lexNorm = maxLex > 0 ? r.lexScore / maxLex : 0;
 
-      // Se temos páginas do sumário, aumentamos fortemente o peso delas
-      const summaryBoost = r.inSummary ? (pagesFromSummary.length ? 0.5 : 0.08) : 0;
+      // Boost para páginas centrais do sumário
+      const summaryBoost = r.inSummary 
+        ? (searchScope === "scoped" ? 0.3 : 0.08) 
+        : 0;
 
-      const finalScore = 0.7 * embNorm + 0.3 * lexNorm + summaryBoost;
+      // Peso ajustado: embedding mais importante quando escopo já foi filtrado
+      const embWeight = searchScope === "scoped" ? 0.8 : 0.7;
+      const lexWeight = 1 - embWeight;
+      
+      const finalScore = embWeight * embNorm + lexWeight * lexNorm + summaryBoost;
+      
       return { ...r, embNorm, lexNorm, finalScore };
     }).sort((a, b) => {
       if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
-      return a.pagina - b.pagina; // desempate determinístico
+      return a.pagina - b.pagina;
     });
 
     if (!ranked.length) {
       return res.json({
         answer: "Não encontrei conteúdo no livro.",
         used_pages: [],
+        search_scope: searchScope,
         question_used: question,
         logs: getLogs()
       });
     }
 
-    if (als.getStore()?.enabled && ranked.length) {
-      const top = ranked[0];
-      logSection("Ranqueamento - Top 1");
-      logObj("pagina_topo", {
-        pagina: top.pagina,
-        embScore: top.embScore,
-        lexScore: top.lexScore,
-        embNorm: top.embNorm,
-        lexNorm: top.lexNorm,
-        finalScore: top.finalScore,
-        inSummary: top.inSummary
-      });
+    if (ranked.length) {
+      const top3 = ranked.slice(0, 3);
+      logObj("top_3_pages", top3.map(r => ({
+        pagina: r.pagina,
+        finalScore: r.finalScore.toFixed(3),
+        embScore: r.embScore.toFixed(3),
+        lexScore: r.lexScore,
+        inSummary: r.inSummary
+      })));
     }
 
-    // 5️⃣ Seleciona até 2 páginas principais
+    // ============================================
+    // 7️⃣ SELECIONA E EXPANDE PÁGINAS
+    // ============================================
+    logSection("Etapa 7: Seleção e expansão de páginas");
+    
     const selectedPages = ranked.slice(0, Math.min(2, ranked.length)).map(r => r.pagina);
     
-    // +++ NOVO: Expande com páginas adjacentes +++
     let finalPages;
     if (EXPAND_CONTEXT) {
       finalPages = expandWithAdjacentPages(selectedPages, pageMap, ADJACENT_RANGE);
       
-      if (als.getStore()?.enabled) {
-        logSection("Expansão de contexto");
-        logObj("original_pages", selectedPages);
-        logObj("expanded_pages", finalPages);
-        logObj("adjacent_range", ADJACENT_RANGE);
-      }
+      logObj("original_pages", selectedPages);
+      logObj("expanded_pages", finalPages);
+      logObj("adjacent_range", ADJACENT_RANGE);
     } else {
       finalPages = selectedPages;
     }
     
-    // Filtra páginas não vazias
     const nonEmptyPages = finalPages.filter(p => (pageMap.get(p) || "").trim());
     
     if (!nonEmptyPages.length) {
       return res.json({
         answer: "Não encontrei conteúdo no livro.",
         used_pages: [],
+        search_scope: searchScope,
         question_used: question,
         logs: getLogs()
       });
     }
     
-    if (als.getStore()?.enabled) {
-      logSection("Páginas finais para contexto");
-      logObj("finalPages", nonEmptyPages);
-      logObj("total_pages", nonEmptyPages.length);
-    }
+    logObj("final_pages_for_context", nonEmptyPages);
+    logObj("total_pages", nonEmptyPages.length);
 
-    // 6️⃣ Monta o contexto com todas as páginas (incluindo adjacentes)
+    // ============================================
+    // 8️⃣ MONTA CONTEXTO
+    // ============================================
+    logSection("Etapa 8: Montagem de contexto");
+    
     const contextText = nonEmptyPages.map(p =>
       `--- Página ${p} ---\n${(pageMap.get(p) || "").trim()}\n`
     ).join("\n");
     
-    if (als.getStore()?.enabled) {
-      logSection("Contexto bruto");
-      logObj("contextText_length", contextText.length);
-      logObj("contextText_trunc", truncate(contextText, 1000));
-    }
+    logObj("context_length", contextText.length);
+    logObj("context_preview", truncate(contextText, 1000));
 
-    // 7️⃣ Prompt atualizado para lidar com múltiplas páginas
+    // ============================================
+    // 9️⃣ PROMPT E GERAÇÃO
+    // ============================================
+    logSection("Etapa 9: Geração de resposta");
+    
     const systemInstruction = `
 Você é um assistente que responde exclusivamente com trechos literais de um livro-base.
 
@@ -690,12 +747,11 @@ Trechos do livro-base do curso.
 Pergunta: """${question}"""
 
 Trechos disponíveis do livro (cada um contém número da página):
-${finalPages.map(p => `Página ${p}:\n${pageMap.get(p)}`).join("\n\n")}
+${nonEmptyPages.map(p => `Página ${p}:\n${pageMap.get(p)}`).join("\n\n")}
 
 Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diretamente à pergunta.
 `.trim();
 
-    // 8️⃣ Geração determinística
     const chatReq = {
       model: CHAT_MODEL,
       messages: [
@@ -710,49 +766,67 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
       max_tokens: 900,
       seed: seedFromString(question)
     };
+    
     logOpenAIRequest("chat.completions.create", chatReq);
     const tChat0 = Date.now();
     const chatResp = await openai.chat.completions.create(chatReq);
     const chatMs = Date.now() - tChat0;
     logOpenAIResponse("chat.completions.create", chatResp, { duration_ms: chatMs });
 
-    const answer =
-      chatResp.choices?.[0]?.message?.content?.trim() ||
-      "Não encontrei conteúdo no livro.";
+    const answer = chatResp.choices?.[0]?.message?.content?.trim() || "Não encontrei conteúdo no livro.";
 
-    if (als.getStore()?.enabled) {
-      logSection("Resposta final");
-      logObj("payload", { 
-        answer, 
-        used_pages: nonEmptyPages,
-        original_selection: selectedPages,
-        expanded_context: EXPAND_CONTEXT
-      });
-    }
+    logSection("Resposta bruta gerada");
+    logObj("answer", answer);
 
-    // +++ Novo: etapa de recomendação do dicionário e concatenação da resposta +++
+    // ============================================
+    // 🔟 RECOMENDAÇÃO DO DICIONÁRIO
+    // ============================================
+    logSection("Etapa 10: Recomendação do dicionário");
     const dictRec = await recommendFromDictionary(req, question);
 
-    // Ajuste: detectar páginas realmente citadas na resposta para montar o template (se necessário futuramente)
+    // ============================================
+    // 1️⃣1️⃣ RENDERIZAÇÃO FINAL
+    // ============================================
+    logSection("Etapa 11: Renderização final");
+    
     const notFound = answer === "Não encontrei conteúdo no livro.";
     const citedPages = extractCitedPages(answer);
 
-    // Novo: renderização no template (ou similar)
     const finalAnswer = notFound
       ? answer
       : renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
 
+    logObj("final_output", {
+      has_book_answer: !notFound,
+      dict_items_count: dictRec.raw.length,
+      cited_pages: citedPages
+    });
+
+    // ============================================
+    // RESPOSTA FINAL
+    // ============================================
     return res.status(200).json({
       answer: finalAnswer,
       used_pages: nonEmptyPages,
       original_pages: selectedPages,
       expanded_context: EXPAND_CONTEXT,
+      search_scope: searchScope,
+      efficiency_metrics: {
+        candidates_evaluated: candidatePages.length,
+        total_pages: pageEmbeddings.length,
+        reduction_percentage: searchScope === "scoped" 
+          ? `${((1 - candidatePages.length / pageEmbeddings.length) * 100).toFixed(1)}%`
+          : "0%"
+      },
       question_used: question,
       logs: getLogs()
     });
 
   } catch (err) {
     console.error("Erro no /api/chat:", err);
-    return res.status(500).json({ error: String(err), logs: getLogs() });
+    return res.status(500).json({ 
+      error: String(err), 
+      logs: getLogs() 
+    });
   }
 }
