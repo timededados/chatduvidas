@@ -23,8 +23,8 @@ const DICT_MAX_RECOMMEND = 5;
 
 // Configuração de expansão de contexto
 const EXPAND_CONTEXT = true;
-const ADJACENT_RANGE = 2;  // ✅ Aumentado de 1 para 2 (±2 páginas)
-const TOP_PAGES_TO_SELECT = 4;  // ✅ Novo: selecionar TOP 4 em vez de TOP 2
+const ADJACENT_RANGE = 1;  // ✅ Reduzido de volta para ±1 (categoria inteira já dá muitas páginas)
+const TOP_PAGES_TO_SELECT = 3;  // ✅ Reduzido para 3 (teremos mais páginas da categoria)
 
 // ==== Sistema de Logging ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
@@ -220,10 +220,14 @@ Sua tarefa é analisar uma pergunta do usuário e identificar quais seções, ca
 
 IMPORTANTE:
 - Considere sinônimos médicos (ex: PCR = parada cardiorrespiratória = parada cardíaca)
-- Considere abreviações comuns (ex: IAM, AVC, TEP, etc)
+- Considere abreviações comuns (ex: IAM, AVC, TEP, RCP, etc)
 - Pense em contexto clínico amplo (ex: "dor no peito" pode relacionar-se com IAM, dissecção de aorta, embolia pulmonar)
 - Seja inclusivo: se houver dúvida se um tópico é relevante, inclua-o
 - SEMPRE considere que a pergunta é sobre adultos, a menos que especifique pediatria
+- **ESTRATÉGIA DE ESPECIFICIDADE:**
+  * Para perguntas BÁSICAS/GERAIS sobre um tema (ex: "o que é RCP?", "como fazer RCP?", "frequência de RCP"): identifique apenas CATEGORIA e deixe topico/subtopico como null
+  * Para perguntas ESPECÍFICAS sobre subtemas (ex: "indicações de ECPR", "dose de epinefrina em PCR"): aí sim especifique topico/subtopico
+  * Na dúvida, seja MENOS específico (melhor ter mais contexto que menos)
 
 Responda EXCLUSIVAMENTE em JSON seguindo este formato:
 {
@@ -231,8 +235,8 @@ Responda EXCLUSIVAMENTE em JSON seguindo este formato:
     {
       "secao": "nome da seção",
       "categoria": "nome da categoria",
-      "topico": "nome do tópico (ou null se toda categoria é relevante)",
-      "subtopico": "nome do subtópico (ou null se todo tópico é relevante)",
+      "topico": "nome do tópico OU null se pergunta for geral sobre a categoria",
+      "subtopico": "nome do subtópico OU null se pergunta não for sobre isso especificamente",
       "reasoning": "breve explicação de por que é relevante"
     }
   ]
@@ -285,6 +289,7 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
 
     // 4. Coletar todas as páginas dos caminhos identificados
     const pagesSet = new Set();
+    const categoryPagesSet = new Set(); // ✅ NOVO: páginas da categoria inteira
     
     for (const path of relevantPaths) {
       // Navegar pela estrutura do sumário para encontrar as páginas corretas
@@ -293,6 +298,9 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
         
         for (const cat of secao.categorias || []) {
           if (path.categoria && normalizeStr(cat.categoria) !== normalizeStr(path.categoria)) continue;
+          
+          // ✅ NOVO: Sempre pegar páginas da categoria inteira
+          (cat.paginas || []).forEach(p => categoryPagesSet.add(p));
           
           // Se não especificou tópico, pega todas as páginas da categoria
           if (!path.topico) {
@@ -303,11 +311,11 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
           for (const top of cat.topicos || []) {
             if (path.topico && normalizeStr(top.topico) !== normalizeStr(path.topico)) continue;
             
-            // Se não especificou subtópico, pega todas as páginas do tópico
-            if (!path.subtopico) {
-              (top.paginas || []).forEach(p => pagesSet.add(p));
-              continue;
-            }
+            // ✅ NOVO: Se encontrou o tópico, pega páginas do tópico + categoria
+            (top.paginas || []).forEach(p => pagesSet.add(p));
+            
+            // Se não especificou subtópico, já tem as páginas do tópico
+            if (!path.subtopico) continue;
             
             for (const sub of top.subtopicos || []) {
               if (path.subtopico && normalizeStr(sub.titulo) !== normalizeStr(path.subtopico)) continue;
@@ -318,10 +326,14 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
       }
     }
 
-    const pages = Array.from(pagesSet).sort((a, b) => a - b);
+    // ✅ NOVO: Combinar páginas específicas + categoria inteira para cobertura completa
+    const allPages = new Set([...pagesSet, ...categoryPagesSet]);
+    const pages = Array.from(allPages).sort((a, b) => a - b);
     
     logSection("Busca Semântica no Sumário - Resultado Final");
-    logObj("pages_found", pages);
+    logObj("pages_from_specific_paths", Array.from(pagesSet).sort((a,b)=>a-b));
+    logObj("pages_from_full_category", Array.from(categoryPagesSet).sort((a,b)=>a-b));
+    logObj("pages_combined", pages);
     logObj("count", pages.length);
     logObj("reasoning_summary", relevantPaths.map(p => ({
       path: `${p.categoria || 'ALL'} > ${p.topico || 'ALL'} > ${p.subtopico || 'ALL'}`,
@@ -622,12 +634,12 @@ export default async function handler(req, res) {
     let searchScope = "global";
     
     if (pagesFromSummary.length > 0) {
-      // Expande páginas do sumário com contexto adjacente mais amplo (±3 páginas)
-      // ✅ Quando temos confiança semântica, podemos incluir mais contexto
+      // Expande páginas do sumário com contexto adjacente (±2 páginas)
+      // Como já pegamos a categoria inteira, não precisamos expandir muito
       const expandedSet = new Set();
       for (const p of pagesFromSummary) {
         expandedSet.add(p);
-        [-3, -2, -1, 1, 2, 3].forEach(offset => {
+        [-2, -1, 1, 2].forEach(offset => {
           const adjacent = p + offset;
           if (pageMap.has(adjacent)) expandedSet.add(adjacent);
         });
@@ -780,7 +792,7 @@ export default async function handler(req, res) {
     // ============================================
     logSection("Etapa 7: Seleção e expansão de páginas");
     
-    // ✅ Aumentado para TOP 4 páginas para melhor cobertura
+    // ✅ Selecionamos TOP N páginas
     const selectedPages = ranked.slice(0, Math.min(TOP_PAGES_TO_SELECT, ranked.length)).map(r => r.pagina);
     
     let finalPages;
@@ -796,7 +808,26 @@ export default async function handler(req, res) {
     
     const nonEmptyPages = finalPages.filter(p => (pageMap.get(p) || "").trim());
     
-    if (!nonEmptyPages.length) {
+    // ✅ NOVO: Limitar contexto para não sobrecarregar o modelo (máximo ~8-10 páginas)
+    const MAX_CONTEXT_PAGES = 10;
+    let limitedPages = nonEmptyPages;
+    
+    if (nonEmptyPages.length > MAX_CONTEXT_PAGES) {
+      // Prioriza páginas com melhor score
+      const pagesWithScore = nonEmptyPages.map(p => {
+        const rankInfo = ranked.find(r => r.pagina === p);
+        return { pagina: p, score: rankInfo ? rankInfo.finalScore : 0 };
+      });
+      pagesWithScore.sort((a, b) => b.score - a.score);
+      limitedPages = pagesWithScore.slice(0, MAX_CONTEXT_PAGES).map(p => p.pagina).sort((a, b) => a - b);
+      
+      logSection("⚠️ Contexto limitado por tamanho");
+      logObj("original_count", nonEmptyPages.length);
+      logObj("limited_to", limitedPages.length);
+      logObj("removed_pages", nonEmptyPages.filter(p => !limitedPages.includes(p)));
+    }
+    
+    if (!limitedPages.length) {
       return res.json({
         answer: "Não encontrei conteúdo no livro.",
         used_pages: [],
@@ -807,8 +838,8 @@ export default async function handler(req, res) {
       });
     }
     
-    logObj("final_pages_for_context", nonEmptyPages);
-    logObj("total_pages", nonEmptyPages.length);
+    logObj("final_pages_for_context", limitedPages);
+    logObj("total_pages", limitedPages.length);
 
     // ============================================
     // 8️⃣ MONTA CONTEXTO
