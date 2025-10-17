@@ -179,13 +179,12 @@ function expandWithAdjacentPages(selectedPages, pageMap, range = ADJACENT_RANGE)
   return Array.from(expandedSet).sort((a, b) => a - b);
 }
 
-// ==== NOVA FUNÇÃO: Busca Semântica no Sumário com OpenAI ====
+// ==== NOVA FUNÇÃO: Busca Semântica no Sumário com OpenAI (OTIMIZADA) ====
 async function semanticSearchSummary(sumario, question) {
   try {
     logSection("Busca Semântica no Sumário - Início");
     
-    // 1. Preparar estrutura IGNORANDO nomes de seções enganosos
-    // ✅ Foca apenas em: categoria > tópico > subtópico
+    // 1. Preparar estrutura completa (mantém arrays de páginas)
     const flatStructure = [];
     
     try {
@@ -242,11 +241,32 @@ async function semanticSearchSummary(sumario, question) {
 
     logSection("Busca Semântica no Sumário - Estrutura Preparada");
     logObj("total_items_in_index", flatStructure.length);
-    logObj("sample_items", flatStructure.slice(0, 5).map((item, idx) => 
-      `[${idx}] ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`
-    ));
 
-    // 2. Criar prompt focado APENAS em categorias/tópicos/subtópicos
+    // 2. ✅ CRIAR VERSÃO COMPACTA para o modelo (sem arrays de páginas)
+    const summaryIndex = flatStructure.map((item, idx) => ({
+      id: idx,
+      secao: item._secao,
+      categoria: item.categoria,
+      topico: item.topico || "GERAL",
+      subtopico: item.subtopico || "GERAL",
+      pages_count: (item.paginas || []).length
+    }));
+
+    logSection("Busca Semântica no Sumário - Índice Compacto Criado");
+    logObj("index_items", summaryIndex.length);
+    logObj("sample_index", summaryIndex.slice(0, 5));
+    
+    // Calcular economia de tokens (aproximada)
+    const fullSize = JSON.stringify(flatStructure).length;
+    const compactSize = JSON.stringify(summaryIndex).length;
+    const savings = ((1 - compactSize / fullSize) * 100).toFixed(1);
+    logObj("token_optimization", {
+      full_structure_chars: fullSize,
+      compact_index_chars: compactSize,
+      savings_percentage: `${savings}%`
+    });
+
+    // 3. Criar prompt otimizado
     logSection("Busca Semântica no Sumário - Preparando Prompt");
     
     const systemPrompt = `Você é um especialista em medicina de emergência e terapia intensiva.
@@ -269,10 +289,10 @@ Se nada for relevante: {"relevant_indices": []}`;
 
     const userPrompt = `Pergunta do usuário: """${question}"""
 
-Estrutura do sumário:
-${JSON.stringify(flatStructure, null, 2)}
+Índice do sumário (${summaryIndex.length} itens):
+${JSON.stringify(summaryIndex, null, 2)}
 
-Identifique quais partes do sumário são relevantes para responder a pergunta.`;
+Identifique os IDs (campo "id") dos itens relevantes para responder a pergunta.`;
 
     const chatReq = {
       model: CHAT_MODEL,
@@ -292,7 +312,7 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
     const ms = Date.now() - t0;
     logOpenAIResponse("chat.completions.create [semantic_summary]", resp, { duration_ms: ms });
 
-    // 3. Parsear resposta e extrair páginas
+    // 4. Parsear resposta e extrair páginas
     logSection("Busca Semântica no Sumário - Parseando Resposta");
     const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
     logObj("raw_response_preview", truncate(raw, 500));
@@ -314,7 +334,7 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
     logObj("relevant_indices", relevantIndices);
     logObj("count", relevantIndices.length);
 
-    // 4. Coletar páginas dos índices identificados
+    // 5. ✅ BUSCAR PÁGINAS COMPLETAS usando os índices retornados
     logSection("Busca Semântica no Sumário - Coletando Páginas");
     const pagesSet = new Set();
     const relevantPaths = [];
@@ -322,7 +342,7 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
     try {
       for (const idx of relevantIndices) {
         if (idx >= 0 && idx < flatStructure.length) {
-          const item = flatStructure[idx];
+          const item = flatStructure[idx];  // ← Acessa estrutura completa com páginas!
           (item.paginas || []).forEach(p => pagesSet.add(p));
           
           relevantPaths.push({
@@ -330,7 +350,8 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
             categoria: item.categoria,
             topico: item.topico,
             subtopico: item.subtopico,
-            reasoning: `Índice ${idx}: ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`
+            reasoning: `Índice ${idx}: ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`,
+            pages_count: (item.paginas || []).length
           });
         }
       }
@@ -344,10 +365,12 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
     
     logSection("Busca Semântica no Sumário - Resultado Final");
     logObj("items_found", relevantPaths.length);
-    logObj("pages_found", pages);
-    logObj("count", pages.length);
+    logObj("total_pages_from_items", relevantPaths.reduce((sum, p) => sum + p.pages_count, 0));
+    logObj("unique_pages", pages.length);
+    logObj("pages_preview", pages.slice(0, 10));
     logObj("paths_summary", relevantPaths.map(p => ({
       path: `${p.categoria} > ${p.topico || 'ALL'} > ${p.subtopico || 'ALL'}`,
+      pages: p.pages_count,
       reason: p.reasoning
     })));
 
