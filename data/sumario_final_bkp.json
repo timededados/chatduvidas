@@ -350,90 +350,6 @@
         ],
         "topicos": [
           {
-            "topico": "Rebaixamento do nível de consciência",
-            "paginas": [
-              142,
-              143,
-              144,
-              145,
-              146,
-              147,
-              148,
-              149,
-              150
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Pontos principais",
-                "paginas": [
-                  142
-                ]
-              },
-              {
-                "titulo": "Introdução",
-                "paginas": [
-                  142
-                ]
-              },
-              {
-                "titulo": "Neurofisiologia da consciência",
-                "paginas": [
-                  142,
-                  143,
-                  144
-                ]
-              },
-              {
-                "titulo": "Sistema ativador ascendente (SAA)",
-                "paginas": [
-                  144
-                ]
-              },
-              {
-                "titulo": "Encefalopatia tóxico-metabólica (ETM)",
-                "paginas": [
-                  144,
-                  145
-                ]
-              },
-              {
-                "titulo": "Apresentação clínica inicial",
-                "paginas": [
-                  145,
-                  146,
-                  147,
-                  148,
-                  149,
-                  150
-                ]
-              },
-              {
-                "titulo": "Avaliação do nível de consciência",
-                "paginas": [
-                  146,
-                  147,
-                  148
-                ]
-              },
-              {
-                "titulo": "Escalas clínicas de alteração do nível de consciência",
-                "paginas": [
-                  146,
-                  147,
-                  148
-                ]
-              },
-              {
-                "titulo": "Avaliação do padrão respiratório",
-                "paginas": [
-                  148,
-                  149,
-                  150
-                ]
-              }
-            ]
-          },
-          {
             "topico": "Tratamento de suporte do choque",
             "paginas": [
               91,
@@ -541,6 +457,90 @@
                 "titulo": "Acompanhamento",
                 "paginas": [
                   98
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Rebaixamento do nível de consciência",
+            "paginas": [
+              142,
+              143,
+              144,
+              145,
+              146,
+              147,
+              148,
+              149,
+              150
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Pontos principais",
+                "paginas": [
+                  142
+                ]
+              },
+              {
+                "titulo": "Introdução",
+                "paginas": [
+                  142
+                ]
+              },
+              {
+                "titulo": "Neurofisiologia da consciência",
+                "paginas": [
+                  142,
+                  143,
+                  144
+                ]
+              },
+              {
+                "titulo": "Sistema ativador ascendente (SAA)",
+                "paginas": [
+                  144
+                ]
+              },
+              {
+                "titulo": "Encefalopatia tóxico-metabólica (ETM)",
+                "paginas": [
+                  144,
+                  145
+                ]
+              },
+              {
+                "titulo": "Apresentação clínica inicial",
+                "paginas": [
+                  145,
+                  146,
+                  147,
+                  148,
+                  149,
+                  150
+                ]
+              },
+              {
+                "titulo": "Avaliação do nível de consciência",
+                "paginas": [
+                  146,
+                  147,
+                  148
+                ]
+              },
+              {
+                "titulo": "Escalas clínicas de alteração do nível de consciência",
+                "paginas": [
+                  146,
+                  147,
+                  148
+                ]
+              },
+              {
+                "titulo": "Avaliação do padrão respiratório",
+                "paginas": [
+                  148,
+                  149,
+                  150
                 ]
               }
             ]
@@ -1130,14 +1130,19 @@
                   177,
                   178
                 ]
+              },
+              {
+                "titulo": "Manejo",
+                "paginas": [
+                  179,
+                  180
+                ]
               }
             ]
           },
           {
             "topico": "Manejo da Dispneia",
             "paginas": [
-              179,
-              180,
               181,
               182
             ],
@@ -1214,14 +1219,14 @@
                 ]
               },
               {
-                "titulo": "Abdome Agudo Inflamatório",
+                "titulo": "Abordagem Sindrômica da Dor Abdominal",
                 "paginas": [
                   189,
                   190
                 ]
               },
               {
-                "titulo": "Abordagem Sindrômica da Dor Abdominal",
+                "titulo": "Abdome Agudo Inflamatório",
                 "paginas": [
                   189,
                   190
@@ -1604,57 +1609,6 @@
                 "titulo": "Atuação de profissionais de saúde na área de concentração de vítimas",
                 "paginas": [
                   250
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Manejo pré-hospitalar",
-            "paginas": [
-              533
-            ]
-          },
-          {
-            "topico": "Tratamento inicial",
-            "paginas": [
-              1183,
-              1184
-            ]
-          },
-          {
-            "topico": "Triagem e Isolamento",
-            "paginas": [
-              1210
-            ]
-          },
-          {
-            "topico": "Definições dos diferentes aparelhos do sistema de atendimento de urgência e emergência",
-            "paginas": [
-              2405
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Atendimento pré-hospitalar fixo",
-                "paginas": [
-                  2405
-                ]
-              },
-              {
-                "titulo": "Unidades não hospitalares de atendimento às urgências e emergências",
-                "paginas": [
-                  2405
-                ]
-              },
-              {
-                "titulo": "Unidade de atendimento pré-hospitalar móvel",
-                "paginas": [
-                  2405
-                ]
-              },
-              {
-                "titulo": "Unidades hospitalares de atendimento às urgências e emergências",
-                "paginas": [
-                  2405
                 ]
               }
             ]
@@ -2418,6 +2372,20 @@
         ],
         "topicos": [
           {
+            "topico": "Encaminhamento à unidade de terapia intensiva",
+            "paginas": [
+              78
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Critérios de priorização para UTI",
+                "paginas": [
+                  78
+                ]
+              }
+            ]
+          },
+          {
             "topico": "Introdução à medicina de altitude",
             "paginas": [
               274,
@@ -2427,13 +2395,13 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
+                "titulo": "Pontos principais",
                 "paginas": [
                   274
                 ]
               },
               {
-                "titulo": "Pontos principais",
+                "titulo": "Introdução",
                 "paginas": [
                   274
                 ]
@@ -2518,11 +2486,49 @@
                 ]
               }
             ]
+          },
+          {
+            "topico": "Triagem de resistência à rifampicina",
+            "paginas": [
+              1741
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Indicações do TRM-TB",
+                "paginas": [
+                  1741
+                ]
+              },
+              {
+                "titulo": "Métodos de coleta de amostras",
+                "paginas": [
+                  1741
+                ]
+              },
+              {
+                "titulo": "Interpretação dos resultados",
+                "paginas": [
+                  1741
+                ]
+              },
+              {
+                "titulo": "Diagnóstico da infecção lactente pelo M. tuberculosis",
+                "paginas": [
+                  1741
+                ]
+              },
+              {
+                "titulo": "Importância da combinação de métodos diagnósticos",
+                "paginas": [
+                  1741
+                ]
+              }
+            ]
           }
         ]
       },
       {
-        "categoria": "Atendimento pré-hospitalar",
+        "categoria": "Atendimento pré-hospitalar aeromédico",
         "paginas": [
           233,
           234,
@@ -2648,6 +2654,38 @@
                 "titulo": "Especificações técnicas",
                 "paginas": [
                   264
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Atendimento pré-hospitalar",
+            "paginas": [
+              2061
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Intoxicações graves medicamentosas ou por substâncias ilícitas",
+                "paginas": [
+                  2061
+                ]
+              },
+              {
+                "titulo": "Identificação do agente toxicológico",
+                "paginas": [
+                  2061
+                ]
+              },
+              {
+                "titulo": "Medidas de descontaminação",
+                "paginas": [
+                  2061
+                ]
+              },
+              {
+                "titulo": "História clínica e avaliação inicial",
+                "paginas": [
+                  2061
                 ]
               }
             ]
@@ -3001,42 +3039,6 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Controle do sangramento",
-            "paginas": [
-              443
-            ]
-          },
-          {
-            "topico": "Estabilização de fratura pélvica instável",
-            "paginas": [
-              444
-            ]
-          },
-          {
-            "topico": "Tamponamento de lesões perineais",
-            "paginas": [
-              445
-            ]
-          },
-          {
-            "topico": "Empacotamento pélvico pré-peritoneal",
-            "paginas": [
-              445
-            ]
-          },
-          {
-            "topico": "Angioembolização",
-            "paginas": [
-              445
-            ]
-          },
-          {
-            "topico": "Paciente “in extremis”",
-            "paginas": [
-              445
-            ]
           }
         ]
       },
@@ -3165,18 +3167,11 @@
             ]
           },
           {
-            "topico": "Ventilação Mecânica",
+            "topico": "Como iniciar o paciente na ventilação mecânica",
             "paginas": [
               1143
             ],
-            "subtopicos": [
-              {
-                "titulo": "Como iniciar o paciente na ventilação mecânica",
-                "paginas": [
-                  1143
-                ]
-              }
-            ]
+            "subtopicos": []
           }
         ]
       },
@@ -3207,6 +3202,12 @@
               },
               {
                 "titulo": "Tamponamento Cardíaco Traumático",
+                "paginas": [
+                  301
+                ]
+              },
+              {
+                "titulo": "Trauma Abdominal Penetrante",
                 "paginas": [
                   301
                 ]
@@ -3252,12 +3253,6 @@
                   348,
                   349,
                   350
-                ]
-              },
-              {
-                "titulo": "Trauma Abdominal Penetrante",
-                "paginas": [
-                  301
                 ]
               }
             ]
@@ -3750,6 +3745,32 @@
                 ]
               }
             ]
+          },
+          {
+            "topico": "Bloqueadores Neuromusculares na Gestação",
+            "paginas": [
+              411
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Classificação e Uso",
+                "paginas": [
+                  411
+                ]
+              },
+              {
+                "titulo": "Considerações sobre Opiáceos e Benzodiazepínicos",
+                "paginas": [
+                  411
+                ]
+              },
+              {
+                "titulo": "Classificação de Risco de Teratogenicidade",
+                "paginas": [
+                  411
+                ]
+              }
+            ]
           }
         ]
       },
@@ -3838,6 +3859,12 @@
             ],
             "subtopicos": [
               {
+                "titulo": "Pontos Principais",
+                "paginas": [
+                  435
+                ]
+              },
+              {
                 "titulo": "Introdução e Considerações Anatômicas",
                 "paginas": [
                   436
@@ -3865,12 +3892,6 @@
                 "titulo": "Apresentação Clínica",
                 "paginas": [
                   440
-                ]
-              },
-              {
-                "titulo": "Pontos Principais",
-                "paginas": [
-                  435
                 ]
               }
             ]
@@ -3995,6 +4016,12 @@
                 ]
               },
               {
+                "titulo": "Queimaduras químicas",
+                "paginas": [
+                  48
+                ]
+              },
+              {
                 "titulo": "Outros artrópodes peçonhentos e venenosos",
                 "paginas": [
                   48
@@ -4002,12 +4029,6 @@
               },
               {
                 "titulo": "Acidentes provocados por animais aquáticos",
-                "paginas": [
-                  48
-                ]
-              },
-              {
-                "titulo": "Queimaduras químicas",
                 "paginas": [
                   48
                 ]
@@ -4024,6 +4045,14 @@
             ],
             "subtopicos": [
               {
+                "titulo": "Mordeduras por Mamíferos",
+                "paginas": [
+                  478,
+                  479,
+                  480
+                ]
+              },
+              {
                 "titulo": "Introdução",
                 "paginas": [
                   478
@@ -4038,14 +4067,6 @@
               {
                 "titulo": "Avaliação Diagnóstica",
                 "paginas": [
-                  480
-                ]
-              },
-              {
-                "titulo": "Mordeduras por Mamíferos",
-                "paginas": [
-                  478,
-                  479,
                   480
                 ]
               }
@@ -4069,25 +4090,6 @@
                   510
                 ]
               }
-            ]
-          },
-          {
-            "topico": "Controle da contaminação",
-            "paginas": [
-              446
-            ]
-          },
-          {
-            "topico": "Investigação e tratamento de lesões associadas",
-            "paginas": [
-              446,
-              447
-            ]
-          },
-          {
-            "topico": "Descontaminação",
-            "paginas": [
-              534
             ]
           }
         ]
@@ -4309,7 +4311,8 @@
         "paginas": [
           539,
           540,
-          550
+          550,
+          1981
         ],
         "topicos": [
           {
@@ -4349,6 +4352,38 @@
                 "titulo": "Apresentação clínica",
                 "paginas": [
                   550
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Propafenona e Outros Antiarritmicos",
+            "paginas": [
+              1981
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Mecanismo de Ação da Propafenona",
+                "paginas": [
+                  1981
+                ]
+              },
+              {
+                "titulo": "Intoxicação por Propafenona",
+                "paginas": [
+                  1981
+                ]
+              },
+              {
+                "titulo": "Considerações sobre Outros Antiarritmicos",
+                "paginas": [
+                  1981
+                ]
+              },
+              {
+                "titulo": "Fluxograma para Manejo de Intoxicações",
+                "paginas": [
+                  1981
                 ]
               }
             ]
@@ -4486,6 +4521,42 @@
                 ]
               }
             ]
+          },
+          {
+            "topico": "Lúpus eritematoso sistêmico",
+            "paginas": [
+              1871,
+              1872,
+              1873
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Características da doença",
+                "paginas": [
+                  1871,
+                  1872
+                ]
+              },
+              {
+                "titulo": "Diagnóstico",
+                "paginas": [
+                  1872,
+                  1873
+                ]
+              },
+              {
+                "titulo": "Manifestações clínicas",
+                "paginas": [
+                  1872
+                ]
+              },
+              {
+                "titulo": "Critérios EULAR/ACR",
+                "paginas": [
+                  1873
+                ]
+              }
+            ]
           }
         ]
       }
@@ -4507,6 +4578,34 @@
           1235
         ],
         "topicos": [
+          {
+            "topico": "Hemorragia Digestiva Alta Varicosa",
+            "paginas": [
+              671,
+              672
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Quadro clínico",
+                "paginas": [
+                  671
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  672
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Alta hospitalar",
+            "paginas": [
+              1082
+            ],
+            "subtopicos": []
+          },
           {
             "topico": "Hemorragia Digestiva Alta (HDA)",
             "paginas": [
@@ -4554,186 +4653,11 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Hemorragia Digestiva Alta Varicosa",
-            "paginas": [
-              671,
-              672
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Quadro clínico",
-                "paginas": [
-                  671
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  672
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Alta hospitalar",
-            "paginas": [
-              1082
-            ],
-            "subtopicos": []
-          },
-          {
-            "topico": "Abdome Agudo",
-            "paginas": [
-              191,
-              192,
-              193,
-              194,
-              195,
-              196,
-              197,
-              198,
-              199,
-              200
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Abdome Agudo Inflamatório",
-                "paginas": [
-                  191,
-                  192,
-                  193
-                ]
-              },
-              {
-                "titulo": "Abdome Agudo Obstrutivo",
-                "paginas": [
-                  192,
-                  193,
-                  194
-                ]
-              },
-              {
-                "titulo": "Abdome Agudo Perfuro",
-                "paginas": [
-                  194,
-                  195
-                ]
-              },
-              {
-                "titulo": "Abdome Agudo Vascular",
-                "paginas": [
-                  195,
-                  196
-                ]
-              },
-              {
-                "titulo": "Abdome Agudo Hemorrágico",
-                "paginas": [
-                  196,
-                  197
-                ]
-              },
-              {
-                "titulo": "Diagnósticos Diferenciais",
-                "paginas": [
-                  197,
-                  198
-                ]
-              },
-              {
-                "titulo": "Avaliação Diagnóstica",
-                "paginas": [
-                  198,
-                  199
-                ]
-              },
-              {
-                "titulo": "Manejo",
-                "paginas": [
-                  199,
-                  200
-                ]
-              },
-              {
-                "titulo": "Acompanhamento",
-                "paginas": [
-                  200
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Plantas causadoras de síndrome hepatotóxica",
-            "paginas": [
-              2104,
-              2105
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Manifestações clínicas",
-                "paginas": [
-                  2105
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  2105
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Opioides",
-            "paginas": [
-              2015,
-              2016,
-              2017,
-              2018,
-              2019,
-              2020
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Introdução",
-                "paginas": [
-                  2015
-                ]
-              },
-              {
-                "titulo": "Tabela de opioides",
-                "paginas": [
-                  2016
-                ]
-              },
-              {
-                "titulo": "Apresentação clínica",
-                "paginas": [
-                  2017,
-                  2018
-                ]
-              },
-              {
-                "titulo": "Abordagem diagnóstica",
-                "paginas": [
-                  2019,
-                  2020
-                ]
-              },
-              {
-                "titulo": "Diagnósticos diferenciais",
-                "paginas": [
-                  2020
-                ]
-              }
-            ]
           }
         ]
       },
       {
-        "categoria": "Emergências Gastrointestinais e Hepáticas",
+        "categoria": "Pancreatite aguda",
         "paginas": [
           1041,
           1042,
@@ -4750,6 +4674,36 @@
           1255
         ],
         "topicos": [
+          {
+            "topico": "Miocardite Aguda",
+            "paginas": [
+              1041,
+              1042,
+              1043
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Diagnóstico",
+                "paginas": [
+                  1041,
+                  1042
+                ]
+              },
+              {
+                "titulo": "Manejo",
+                "paginas": [
+                  1042,
+                  1043
+                ]
+              },
+              {
+                "titulo": "Acompanhamento",
+                "paginas": [
+                  1043
+                ]
+              }
+            ]
+          },
           {
             "topico": "Pancreatite Aguda",
             "paginas": [
@@ -4911,7 +4865,7 @@
         ]
       },
       {
-        "categoria": "Emergências gastrointestinais e hepáticas",
+        "categoria": "Cirrose descompensada",
         "paginas": [
           1256,
           1257,
@@ -4931,13 +4885,13 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
+                "titulo": "Pontos principais",
                 "paginas": [
                   1256
                 ]
               },
               {
-                "titulo": "Pontos principais",
+                "titulo": "Introdução",
                 "paginas": [
                   1256
                 ]
@@ -4996,6 +4950,34 @@
         ],
         "topicos": [
           {
+            "topico": "Encefalopatia hepática",
+            "paginas": [
+              1267
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  1267
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Insuficiência hepática aguda",
+            "paginas": [
+              1270
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Definições",
+                "paginas": [
+                  1270
+                ]
+              }
+            ]
+          },
+          {
             "topico": "Insuficiência Hepática Aguda (IHA)",
             "paginas": [
               1271,
@@ -5006,12 +4988,6 @@
               1276
             ],
             "subtopicos": [
-              {
-                "titulo": "Definições",
-                "paginas": [
-                  1270
-                ]
-              },
               {
                 "titulo": "Causas Etiológicas",
                 "paginas": [
@@ -5050,20 +5026,6 @@
                 "titulo": "Prognóstico",
                 "paginas": [
                   1276
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Encefalopatia hepática",
-            "paginas": [
-              1267
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  1267
                 ]
               }
             ]
@@ -5221,6 +5183,41 @@
                 "titulo": "Considerações Finais",
                 "paginas": [
                   1300
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Doença Citomegálica",
+            "paginas": [
+              1703,
+              1704
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Diagnóstico",
+                "paginas": [
+                  1703
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  1704
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "DOENÇA DE BEHÇET",
+            "paginas": [
+              1870
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Características e Diagnóstico",
+                "paginas": [
+                  1870
                 ]
               }
             ]
@@ -5502,7 +5499,7 @@
         ],
         "topicos": [
           {
-            "topico": "Manejo",
+            "topico": "MANEJO",
             "paginas": [
               90,
               159,
@@ -5840,20 +5837,6 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Encaminhamento à unidade de terapia intensiva",
-            "paginas": [
-              78
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Critérios de priorização para UTI",
-                "paginas": [
-                  78
-                ]
-              }
-            ]
           }
         ]
       },
@@ -5878,6 +5861,38 @@
           764
         ],
         "topicos": [
+          {
+            "topico": "Ventilação Mecânica e Sedação na Gestante",
+            "paginas": [
+              412
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Parâmetros de Ventilação",
+                "paginas": [
+                  412
+                ]
+              },
+              {
+                "titulo": "Sedação Contínua",
+                "paginas": [
+                  412
+                ]
+              },
+              {
+                "titulo": "Manejo da Respiração",
+                "paginas": [
+                  412
+                ]
+              },
+              {
+                "titulo": "Circulação",
+                "paginas": [
+                  412
+                ]
+              }
+            ]
+          },
           {
             "topico": "Analgesia e sedação",
             "paginas": [
@@ -5948,38 +5963,6 @@
                   733,
                   734,
                   735
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Ventilação Mecânica e Sedação na Gestante",
-            "paginas": [
-              412
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Parâmetros de Ventilação",
-                "paginas": [
-                  412
-                ]
-              },
-              {
-                "titulo": "Sedação Contínua",
-                "paginas": [
-                  412
-                ]
-              },
-              {
-                "titulo": "Manejo da Respiração",
-                "paginas": [
-                  412
-                ]
-              },
-              {
-                "titulo": "Circulação",
-                "paginas": [
-                  412
                 ]
               }
             ]
@@ -6195,12 +6178,6 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
-                "paginas": [
-                  2216
-                ]
-              },
-              {
                 "titulo": "Acesso Venoso Periférico",
                 "paginas": [
                   606,
@@ -6220,6 +6197,12 @@
                   610,
                   2218,
                   2219
+                ]
+              },
+              {
+                "titulo": "Introdução",
+                "paginas": [
+                  2216
                 ]
               },
               {
@@ -6595,8 +6578,21 @@
                 "paginas": [
                   640
                 ]
+              },
+              {
+                "titulo": "Ultrassonografia",
+                "paginas": [
+                  640
+                ]
               }
             ]
+          },
+          {
+            "topico": "Ultrassonografia de tórax",
+            "paginas": [
+              1191
+            ],
+            "subtopicos": []
           }
         ]
       },
@@ -6639,6 +6635,12 @@
             ],
             "subtopicos": [
               {
+                "titulo": "Pontos principais",
+                "paginas": [
+                  652
+                ]
+              },
+              {
                 "titulo": "Introdução",
                 "paginas": [
                   652
@@ -6655,6 +6657,12 @@
                 "paginas": [
                   654,
                   655
+                ]
+              },
+              {
+                "titulo": "Ultrassonografia à beira-leito",
+                "paginas": [
+                  656
                 ]
               },
               {
@@ -6738,12 +6746,6 @@
                 "titulo": "Considerações finais",
                 "paginas": [
                   665
-                ]
-              },
-              {
-                "titulo": "Pontos principais",
-                "paginas": [
-                  652
                 ]
               }
             ]
@@ -6939,7 +6941,7 @@
         ]
       },
       {
-        "categoria": "Intervenções e Procedimentos",
+        "categoria": "Cesárea de reanimação",
         "paginas": [
           694,
           695,
@@ -7056,6 +7058,34 @@
               1434
             ],
             "subtopicos": []
+          },
+          {
+            "topico": "Quando suspender as manobras de reanimação cardiopulmonar",
+            "paginas": [
+              2389
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Fatores de insucesso na RCP",
+                "paginas": [
+                  2389
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Equipe de reanimação",
+            "paginas": [
+              2389
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Composição da equipe",
+                "paginas": [
+                  2389
+                ]
+              }
+            ]
           }
         ]
       },
@@ -7337,6 +7367,45 @@
                 ]
               }
             ]
+          },
+          {
+            "topico": "Cuidados pós-parada cardiorrespiratória",
+            "paginas": [
+              2386,
+              2388
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Ventilação pulmonar mecânica",
+                "paginas": [
+                  2386
+                ]
+              },
+              {
+                "titulo": "Suporte hemodinâmico",
+                "paginas": [
+                  2386
+                ]
+              },
+              {
+                "titulo": "Alterações renais e hidroeletrolíticas",
+                "paginas": [
+                  2386
+                ]
+              },
+              {
+                "titulo": "Neurointensivismo",
+                "paginas": [
+                  2388
+                ]
+              },
+              {
+                "titulo": "Controle de temperatura pós-ROSC",
+                "paginas": [
+                  2388
+                ]
+              }
+            ]
           }
         ]
       },
@@ -7610,6 +7679,12 @@
             ],
             "subtopicos": [
               {
+                "titulo": "PONTOS PRINCIPAIS",
+                "paginas": [
+                  758
+                ]
+              },
+              {
                 "titulo": "INTRODUÇÃO",
                 "paginas": [
                   758
@@ -7619,12 +7694,6 @@
                 "titulo": "INDICAÇÃO",
                 "paginas": [
                   759
-                ]
-              },
-              {
-                "titulo": "PONTOS PRINCIPAIS",
-                "paginas": [
-                  758
                 ]
               },
               {
@@ -7943,7 +8012,7 @@
     "secao": "SEÇÃO VI – EMERGÊNCIAS NEUROLÓGICAS E PSIQUIÁTRICAS",
     "categorias": [
       {
-        "categoria": "Emergências neurológicas e psiquiátricas",
+        "categoria": "Emergências psiquiátricas",
         "paginas": [
           50,
           786,
@@ -8003,28 +8072,31 @@
         ],
         "topicos": [
           {
-            "topico": "Emergências neurológicas",
+            "topico": "SEÇÃO VI – EMERGÊNCIAS NEUROLÓGICAS E PSIQUIÁTRICAS",
             "paginas": [
-              50,
-              786,
-              787,
-              788,
-              789,
-              790
+              50
             ],
             "subtopicos": [
               {
                 "titulo": "Acidente vascular cerebral isquêmico",
                 "paginas": [
-                  50,
-                  787,
-                  788,
-                  789,
-                  790
+                  50
                 ]
               },
               {
                 "titulo": "Acidente vascular cerebral hemorrágico",
+                "paginas": [
+                  50
+                ]
+              },
+              {
+                "titulo": "Tentativa de autoextermínio",
+                "paginas": [
+                  50
+                ]
+              },
+              {
+                "titulo": "Agitação psicomotora e delirium",
                 "paginas": [
                   50
                 ]
@@ -8066,6 +8138,12 @@
                 ]
               },
               {
+                "titulo": "Emergências psiquiátricas",
+                "paginas": [
+                  50
+                ]
+              },
+              {
                 "titulo": "Tomografia computadorizada de crânio e da coluna",
                 "paginas": [
                   50
@@ -8074,7 +8152,64 @@
             ]
           },
           {
-            "topico": "Emergências psiquiátricas",
+            "topico": "EMERGÊNCIAS NEUROLÓGICAS E PSIQUIÁTRICAS",
+            "paginas": [
+              786,
+              787,
+              788,
+              789,
+              790
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Acidente Vascular Cerebral Isquêmico",
+                "paginas": [
+                  787,
+                  788,
+                  789,
+                  790
+                ]
+              },
+              {
+                "titulo": "Epidemiologia",
+                "paginas": [
+                  787
+                ]
+              },
+              {
+                "titulo": "Circulação cerebral",
+                "paginas": [
+                  788
+                ]
+              },
+              {
+                "titulo": "Fisiopatologia",
+                "paginas": [
+                  788
+                ]
+              },
+              {
+                "titulo": "Manifestações clínicas",
+                "paginas": [
+                  789
+                ]
+              },
+              {
+                "titulo": "Avaliação inicial",
+                "paginas": [
+                  789
+                ]
+              },
+              {
+                "titulo": "Exames complementares",
+                "paginas": [
+                  790
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Emergências Psiquiátricas",
             "paginas": [
               885,
               886,
@@ -8135,62 +8270,391 @@
             ]
           },
           {
-            "topico": "Complicações Vasculares",
+            "topico": "Emergências cardiovasculares",
             "paginas": [
-              2325
+              912,
+              913,
+              914,
+              915,
+              916,
+              917,
+              918,
+              919,
+              920
             ],
             "subtopicos": [
               {
-                "titulo": "Acidente Vascular Cerebral (AVC)",
+                "titulo": "Ressuscitação cardiopulmonar",
                 "paginas": [
-                  2325
+                  913,
+                  914,
+                  915,
+                  916,
+                  917,
+                  918,
+                  919,
+                  920
                 ]
               }
             ]
           },
           {
-            "topico": "Síndrome Vestibular Aguda (AVS)",
+            "topico": "Emergências Genitourinárias",
             "paginas": [
-              131
+              1324,
+              1325,
+              1326,
+              1327,
+              1328,
+              1329,
+              1330
             ],
             "subtopicos": [
               {
-                "titulo": "Definição e Diagnósticos Diferenciais",
+                "titulo": "Escroto Agudo",
                 "paginas": [
-                  131
+                  1325,
+                  1326
                 ]
               },
               {
-                "titulo": "Estratégia HINTS",
+                "titulo": "Principais Etiologias",
                 "paginas": [
-                  131
+                  1326,
+                  1327
                 ]
               },
               {
-                "titulo": "Síndrome de Vertigem Episódica (EVS)",
+                "titulo": "Manejo",
                 "paginas": [
-                  131
+                  1327,
+                  1328,
+                  1329,
+                  1330
                 ]
               }
             ]
           },
           {
-            "topico": "Antipsicóticos",
+            "topico": "EMERGÊNCIAS OFTALMOLÓGICAS",
             "paginas": [
-              1451,
-              1452
+              1787,
+              1788,
+              1789,
+              1790,
+              1791,
+              1792,
+              1793,
+              1794,
+              1795,
+              1796,
+              1797,
+              1798,
+              1799,
+              1800
             ],
             "subtopicos": [
               {
-                "titulo": "Antipsicóticos típicos",
+                "titulo": "Anatomia e exame ocular básico na emergência",
                 "paginas": [
-                  1451
+                  1788
                 ]
               },
               {
-                "titulo": "Haloperidol",
+                "titulo": "Emergências oftalmológicas",
                 "paginas": [
-                  1452
+                  1788
+                ]
+              },
+              {
+                "titulo": "Trauma ocular",
+                "paginas": [
+                  1788,
+                  1796,
+                  1797
+                ]
+              },
+              {
+                "titulo": "Causas de olho vermelho",
+                "paginas": [
+                  1788
+                ]
+              },
+              {
+                "titulo": "Perda visual aguda persistente",
+                "paginas": [
+                  1788,
+                  1799,
+                  1800
+                ]
+              },
+              {
+                "titulo": "Fundo de olho e POCUS ocular",
+                "paginas": [
+                  1790
+                ]
+              },
+              {
+                "titulo": "Emergências oftalmológicas relacionadas a olho vermelho",
+                "paginas": [
+                  1791,
+                  1792
+                ]
+              },
+              {
+                "titulo": "Glaucoma agudo",
+                "paginas": [
+                  1791,
+                  1792
+                ]
+              },
+              {
+                "titulo": "Úlcera de córnea",
+                "paginas": [
+                  1792,
+                  1793
+                ]
+              },
+              {
+                "titulo": "Emergências oftalmológicas relacionadas a trauma ocular",
+                "paginas": [
+                  1793,
+                  1794,
+                  1795,
+                  1796
+                ]
+              },
+              {
+                "titulo": "Perfuração ocular/trauma ocular aberto",
+                "paginas": [
+                  1793,
+                  1794
+                ]
+              },
+              {
+                "titulo": "Síndrome compartimental da órbita",
+                "paginas": [
+                  1794
+                ]
+              },
+              {
+                "titulo": "Queimadura química ocular",
+                "paginas": [
+                  1794
+                ]
+              },
+              {
+                "titulo": "Emergências oftalmológicas relacionadas a baixas visuais agudas",
+                "paginas": [
+                  1795,
+                  1796
+                ]
+              },
+              {
+                "titulo": "Descolamento de retina",
+                "paginas": [
+                  1795
+                ]
+              },
+              {
+                "titulo": "Oclusão da artéria central da retina (OACR)",
+                "paginas": [
+                  1796
+                ]
+              },
+              {
+                "titulo": "Introdução ao trauma ocular",
+                "paginas": [
+                  1796
+                ]
+              },
+              {
+                "titulo": "Epidemiologia do trauma ocular",
+                "paginas": [
+                  1796
+                ]
+              },
+              {
+                "titulo": "Trauma ocular fechado com hifema traumático",
+                "paginas": [
+                  1797
+                ]
+              },
+              {
+                "titulo": "Laceração de pálpebra",
+                "paginas": [
+                  1797
+                ]
+              },
+              {
+                "titulo": "Intubação orotraqueal em pacientes com risco de trauma ocular aberto",
+                "paginas": [
+                  1797
+                ]
+              },
+              {
+                "titulo": "OLHO VERMELHO",
+                "paginas": [
+                  1797,
+                  1798
+                ]
+              },
+              {
+                "titulo": "Conjuntivites",
+                "paginas": [
+                  1798
+                ]
+              },
+              {
+                "titulo": "Conjuntivites virais",
+                "paginas": [
+                  1798
+                ]
+              },
+              {
+                "titulo": "Conjuntivites bacterianas",
+                "paginas": [
+                  1798
+                ]
+              },
+              {
+                "titulo": "Conjuntivite alérgica",
+                "paginas": [
+                  1798
+                ]
+              },
+              {
+                "titulo": "HIPOSFAGMA",
+                "paginas": [
+                  1798
+                ]
+              },
+              {
+                "titulo": "UVEÍTES",
+                "paginas": [
+                  1798,
+                  1799
+                ]
+              },
+              {
+                "titulo": "EPISCLERITES E ESCLERITES",
+                "paginas": [
+                  1799
+                ]
+              },
+              {
+                "titulo": "Etiologias da perda visual aguda persistente",
+                "paginas": [
+                  1799,
+                  1800
+                ]
+              },
+              {
+                "titulo": "Distúrbios de meio",
+                "paginas": [
+                  1799,
+                  1800
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "EMERGÊNCIAS REUMATOLÓGICAS",
+            "paginas": [
+              1863,
+              1864,
+              1865,
+              1866,
+              1867,
+              1868,
+              1869,
+              1870
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Introdução",
+                "paginas": [
+                  1864
+                ]
+              },
+              {
+                "titulo": "Vasculites",
+                "paginas": [
+                  1864,
+                  1865,
+                  1866,
+                  1867,
+                  1868,
+                  1869,
+                  1870
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Emergências pediátricas",
+            "paginas": [
+              2285,
+              2286,
+              2287,
+              2288,
+              2289,
+              2290
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Febre sem foco infeccioso definido",
+                "paginas": [
+                  2286
+                ]
+              },
+              {
+                "titulo": "Introdução",
+                "paginas": [
+                  2286
+                ]
+              },
+              {
+                "titulo": "Definições",
+                "paginas": [
+                  2286
+                ]
+              },
+              {
+                "titulo": "Triagem do paciente febril",
+                "paginas": [
+                  2287
+                ]
+              },
+              {
+                "titulo": "Por que tratar a febre?",
+                "paginas": [
+                  2287
+                ]
+              },
+              {
+                "titulo": "Desafios da febre na criança: como iniciar a investigação",
+                "paginas": [
+                  2288
+                ]
+              },
+              {
+                "titulo": "Testes laboratoriais na triagem do risco de infecção bacteriana invasiva",
+                "paginas": [
+                  2288,
+                  2289
+                ]
+              },
+              {
+                "titulo": "Avaliação da febre – considerações",
+                "paginas": [
+                  2289
+                ]
+              },
+              {
+                "titulo": "Manejo da criança febril de 7 dias a 3 meses",
+                "paginas": [
+                  2290
                 ]
               }
             ]
@@ -8224,6 +8688,32 @@
                 "titulo": "Ferimento penetrante",
                 "paginas": [
                   313
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Via aérea e proteção da coluna cervical",
+            "paginas": [
+              451
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Avaliação da via aérea",
+                "paginas": [
+                  451
+                ]
+              },
+              {
+                "titulo": "Intubação orotraqueal",
+                "paginas": [
+                  451
+                ]
+              },
+              {
+                "titulo": "Manejo do edema da via aérea",
+                "paginas": [
+                  451
                 ]
               }
             ]
@@ -8275,32 +8765,6 @@
             ]
           },
           {
-            "topico": "Via aérea e proteção da coluna cervical",
-            "paginas": [
-              451
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Avaliação da via aérea",
-                "paginas": [
-                  451
-                ]
-              },
-              {
-                "titulo": "Intubação orotraqueal",
-                "paginas": [
-                  451
-                ]
-              },
-              {
-                "titulo": "Manejo do edema da via aérea",
-                "paginas": [
-                  451
-                ]
-              }
-            ]
-          },
-          {
             "topico": "Tomografia computadorizada do tórax",
             "paginas": [
               1191,
@@ -8311,7 +8775,7 @@
         ]
       },
       {
-        "categoria": "Emergências Neurológicas",
+        "categoria": "Paralisia facial",
         "paginas": [
           582,
           583,
@@ -8324,6 +8788,33 @@
           848
         ],
         "topicos": [
+          {
+            "topico": "Indução e paralisia",
+            "paginas": [
+              582,
+              583
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Agentes de Indução",
+                "paginas": [
+                  582
+                ]
+              },
+              {
+                "titulo": "Sedativos",
+                "paginas": [
+                  582
+                ]
+              },
+              {
+                "titulo": "Bloqueadores Neuromusculares",
+                "paginas": [
+                  583
+                ]
+              }
+            ]
+          },
           {
             "topico": "Paralisia Facial",
             "paginas": [
@@ -8482,7 +8973,7 @@
         ]
       },
       {
-        "categoria": "Emergências psiquiátricas",
+        "categoria": "Tentativa de autoextermínio",
         "paginas": [
           811,
           812,
@@ -8557,7 +9048,7 @@
         ]
       },
       {
-        "categoria": "Emergências psiquiátricas",
+        "categoria": "Agitação psicomotora e delirium",
         "paginas": [
           821,
           822,
@@ -8764,6 +9255,12 @@
             ],
             "subtopicos": [
               {
+                "titulo": "Esquemas de Tratamento",
+                "paginas": [
+                  1702
+                ]
+              },
+              {
                 "titulo": "Diagnóstico",
                 "paginas": [
                   1701
@@ -8773,12 +9270,6 @@
                 "titulo": "Tratamento",
                 "paginas": [
                   1701
-                ]
-              },
-              {
-                "titulo": "Esquemas de Tratamento",
-                "paginas": [
-                  1702
                 ]
               }
             ]
@@ -8801,7 +9292,7 @@
         ],
         "topicos": [
           {
-            "topico": "Morte Encefálica e Manejo do Potencial Doador de Órgãos",
+            "topico": "Morte Encefálica e Manejo do Potencial doador de Órgãos",
             "paginas": [
               876,
               877,
@@ -8896,11 +9387,38 @@
                 ]
               }
             ]
+          },
+          {
+            "topico": "Manejo de Pacientes com DPOC e Asma",
+            "paginas": [
+              1161,
+              1162
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Critérios para Alta",
+                "paginas": [
+                  1161
+                ]
+              },
+              {
+                "titulo": "Sugestão de Prescrição para Alta na Asma",
+                "paginas": [
+                  1161
+                ]
+              },
+              {
+                "titulo": "Sugestão de Prescrição para Alta na DPOC",
+                "paginas": [
+                  1161
+                ]
+              }
+            ]
           }
         ]
       },
       {
-        "categoria": "Emergências Neurológicas e Psiquiátricas",
+        "categoria": "Acidente vascular cerebral isquêmico",
         "paginas": [
           932,
           933
@@ -8950,6 +9468,32 @@
           2324
         ],
         "topicos": [
+          {
+            "topico": "Síndrome Vestibular Aguda (AVS)",
+            "paginas": [
+              131
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Definição e Diagnósticos Diferenciais",
+                "paginas": [
+                  131
+                ]
+              },
+              {
+                "titulo": "Estratégia HINTS",
+                "paginas": [
+                  131
+                ]
+              },
+              {
+                "titulo": "Síndrome de Vertigem Episódica (EVS)",
+                "paginas": [
+                  131
+                ]
+              }
+            ]
+          },
           {
             "topico": "Síndrome Coronariana Aguda",
             "paginas": [
@@ -9027,246 +9571,6 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Lesões Cardiovasculares",
-            "paginas": [
-              642
-            ]
-          },
-          {
-            "topico": "Propafenona e Outros Antiarritmicos",
-            "paginas": [
-              1981
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Mecanismo de Ação da Propafenona",
-                "paginas": [
-                  1981
-                ]
-              },
-              {
-                "titulo": "Intoxicação por Propafenona",
-                "paginas": [
-                  1981
-                ]
-              },
-              {
-                "titulo": "Considerações sobre Outros Antiarritmicos",
-                "paginas": [
-                  1981
-                ]
-              },
-              {
-                "titulo": "Fluxograma para Manejo de Intoxicações",
-                "paginas": [
-                  1981
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Miocardite Aguda",
-            "paginas": [
-              1041,
-              1042,
-              1043
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Diagnóstico",
-                "paginas": [
-                  1041,
-                  1042
-                ]
-              },
-              {
-                "titulo": "Manejo",
-                "paginas": [
-                  1042,
-                  1043
-                ]
-              },
-              {
-                "titulo": "Acompanhamento",
-                "paginas": [
-                  1043
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Tratamento de suporte do choque",
-            "paginas": [
-              90
-            ]
-          },
-          {
-            "topico": "Terapia de suporte",
-            "paginas": [
-              535
-            ]
-          },
-          {
-            "topico": "Quando suspender as manobras de reanimação cardiopulmonar",
-            "paginas": [
-              2389
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Fatores de insucesso na RCP",
-                "paginas": [
-                  2389
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Equipe de reanimação",
-            "paginas": [
-              2389
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Composição da equipe",
-                "paginas": [
-                  2389
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Cuidados pós-parada cardiorrespiratória",
-            "paginas": [
-              2386,
-              2388
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Ventilação pulmonar mecânica",
-                "paginas": [
-                  2386
-                ]
-              },
-              {
-                "titulo": "Suporte hemodinâmico",
-                "paginas": [
-                  2386
-                ]
-              },
-              {
-                "titulo": "Alterações renais e hidroeletrolíticas",
-                "paginas": [
-                  2386
-                ]
-              },
-              {
-                "titulo": "Neurointensivismo",
-                "paginas": [
-                  2388
-                ]
-              },
-              {
-                "titulo": "Controle de temperatura pós-ROSC",
-                "paginas": [
-                  2388
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Emergências cardiovasculares",
-            "paginas": [
-              912,
-              913,
-              914,
-              915,
-              916,
-              917,
-              918,
-              919,
-              920
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Ressuscitação cardiopulmonar",
-                "paginas": [
-                  913,
-                  914,
-                  915,
-                  916,
-                  917,
-                  918,
-                  919,
-                  920
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Ventilação Pulmonar e Reanimação Neonatal",
-            "paginas": [
-              2331,
-              2332,
-              2333,
-              2334,
-              2335
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Massagem Cardíaca",
-                "paginas": [
-                  2333
-                ]
-              },
-              {
-                "titulo": "Medicações na Reanimação",
-                "paginas": [
-                  2333,
-                  2334
-                ]
-              },
-              {
-                "titulo": "Considerações Éticas na Reanimação",
-                "paginas": [
-                  2335
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Complicações pós-IAM",
-            "paginas": [
-              1081,
-              1082
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Bradicardias e bloqueios atrioventriculares (BAV)",
-                "paginas": [
-                  1081
-                ]
-              },
-              {
-                "titulo": "Taquiarritmias",
-                "paginas": [
-                  1081
-                ]
-              },
-              {
-                "titulo": "Choque cardiogênico",
-                "paginas": [
-                  1081
-                ]
-              },
-              {
-                "titulo": "Complicações mecânicas do IAM",
-                "paginas": [
-                  1082
-                ]
-              }
-            ]
           }
         ]
       },
@@ -9277,26 +9581,6 @@
           1020
         ],
         "topicos": [
-          {
-            "topico": "Tromboembolismo Pulmonar (TEP)",
-            "paginas": [
-              1020
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Definição",
-                "paginas": [
-                  1020
-                ]
-              },
-              {
-                "titulo": "Epidemiologia",
-                "paginas": [
-                  1020
-                ]
-              }
-            ]
-          },
           {
             "topico": "Contusão Pulmonar",
             "paginas": [
@@ -9322,6 +9606,26 @@
                 ]
               }
             ]
+          },
+          {
+            "topico": "Tromboembolismo Pulmonar (TEP)",
+            "paginas": [
+              1020
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Definição",
+                "paginas": [
+                  1020
+                ]
+              },
+              {
+                "titulo": "Epidemiologia",
+                "paginas": [
+                  1020
+                ]
+              }
+            ]
           }
         ]
       },
@@ -9343,6 +9647,48 @@
           1019
         ],
         "topicos": [
+          {
+            "topico": "Trombose Venosa Cerebral (TVC)",
+            "paginas": [
+              901,
+              902
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Quadro Clínico",
+                "paginas": [
+                  901
+                ]
+              },
+              {
+                "titulo": "Diagnóstico por Imagem",
+                "paginas": [
+                  902
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Trombose venosa profunda",
+            "paginas": [
+              1009,
+              1010
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Introdução",
+                "paginas": [
+                  1009
+                ]
+              },
+              {
+                "titulo": "Apresentação clínica",
+                "paginas": [
+                  1010
+                ]
+              }
+            ]
+          },
           {
             "topico": "Trombose Venosa Profunda (TVP)",
             "paginas": [
@@ -9397,27 +9743,6 @@
                 "titulo": "Acompanhamento",
                 "paginas": [
                   1019
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Trombose Venosa Cerebral (TVC)",
-            "paginas": [
-              901,
-              902
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Quadro Clínico",
-                "paginas": [
-                  901
-                ]
-              },
-              {
-                "titulo": "Diagnóstico por Imagem",
-                "paginas": [
-                  902
                 ]
               }
             ]
@@ -9841,51 +10166,6 @@
                   982,
                   983,
                   984
-                ],
-                "subtopicos": [
-                  {
-                    "titulo": "Disfunção de nó sinusal",
-                    "paginas": [
-                      981,
-                      982
-                    ]
-                  },
-                  {
-                    "titulo": "Bradicardia sinusal",
-                    "paginas": [
-                      982
-                    ]
-                  },
-                  {
-                    "titulo": "Pausa sinusal",
-                    "paginas": [
-                      982
-                    ]
-                  },
-                  {
-                    "titulo": "Síndrome bradicardia-taquicardia",
-                    "paginas": [
-                      982
-                    ]
-                  },
-                  {
-                    "titulo": "Incompetência cronotrópica",
-                    "paginas": [
-                      983
-                    ]
-                  },
-                  {
-                    "titulo": "Bloqueios sinoatriais",
-                    "paginas": [
-                      983
-                    ]
-                  },
-                  {
-                    "titulo": "Bloqueios atrioventriculares",
-                    "paginas": [
-                      984
-                    ]
-                  }
                 ]
               },
               {
@@ -9897,6 +10177,60 @@
                   988,
                   989,
                   990
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Classificação das Bradicardias",
+            "paginas": [
+              981,
+              982,
+              983,
+              984
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Disfunção de nó sinusal",
+                "paginas": [
+                  981,
+                  982
+                ]
+              },
+              {
+                "titulo": "Bradicardia sinusal",
+                "paginas": [
+                  982
+                ]
+              },
+              {
+                "titulo": "Pausa sinusal",
+                "paginas": [
+                  982
+                ]
+              },
+              {
+                "titulo": "Síndrome bradicardia-taquicardia",
+                "paginas": [
+                  982
+                ]
+              },
+              {
+                "titulo": "Incompetência cronotrópica",
+                "paginas": [
+                  983
+                ]
+              },
+              {
+                "titulo": "Bloqueios sinoatriais",
+                "paginas": [
+                  983
+                ]
+              },
+              {
+                "titulo": "Bloqueios atrioventriculares",
+                "paginas": [
+                  984
                 ]
               }
             ]
@@ -10074,7 +10408,7 @@
         ]
       },
       {
-        "categoria": "EMERGÊNCIAS CARDIOVASCULARES",
+        "categoria": "Miopericardites",
         "paginas": [
           1033,
           1034,
@@ -10344,6 +10678,22 @@
             ]
           },
           {
+            "topico": "COMPLICAÇÕES",
+            "paginas": [
+              679,
+              764,
+              1752
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Síndrome de Waterhouse-Friderichsen",
+                "paginas": [
+                  1752
+                ]
+              }
+            ]
+          },
+          {
             "topico": "Complicações relacionadas à traqueostomia",
             "paginas": [
               1222,
@@ -10386,22 +10736,6 @@
             ]
           },
           {
-            "topico": "COMPLICAÇÕES",
-            "paginas": [
-              679,
-              764,
-              1752
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Síndrome de Waterhouse-Friderichsen",
-                "paginas": [
-                  1752
-                ]
-              }
-            ]
-          },
-          {
             "topico": "Complicações associadas à terapêutica",
             "paginas": [
               1613,
@@ -10433,90 +10767,11 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Drenagem torácica",
-            "paginas": [
-              1185,
-              1186
-            ]
-          },
-          {
-            "topico": "Complicações e acompanhamento",
-            "paginas": [
-              1186
-            ]
-          },
-          {
-            "topico": "Oxigenoterapia",
-            "paginas": [
-              1210
-            ]
-          },
-          {
-            "topico": "Manejo de Pacientes com DPOC e Asma",
-            "paginas": [
-              1161,
-              1162
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Critérios para Alta",
-                "paginas": [
-                  1161
-                ]
-              },
-              {
-                "titulo": "Sugestão de Prescrição para Alta na Asma",
-                "paginas": [
-                  1161
-                ]
-              },
-              {
-                "titulo": "Sugestão de Prescrição para Alta na DPOC",
-                "paginas": [
-                  1161
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Lesão Traqueobrônquica",
-            "paginas": [
-              354
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Anatomia e Fisiologia",
-                "paginas": [
-                  354
-                ]
-              },
-              {
-                "titulo": "Sintomas e Diagnóstico",
-                "paginas": [
-                  354
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  354
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Ultrassonografia pulmonar",
-            "paginas": [
-              1674
-            ],
-            "subtopicos": []
           }
         ]
       },
       {
-        "categoria": "EMERGÊNCIAS RESPIRATÓRIAS",
+        "categoria": "Hemorragia alveolar",
         "paginas": [
           901,
           1169,
@@ -10531,6 +10786,32 @@
           1178
         ],
         "topicos": [
+          {
+            "topico": "Hemorragia Intraparenquimatosa (HIP)",
+            "paginas": [
+              901
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Definição e Diagnóstico",
+                "paginas": [
+                  901
+                ]
+              },
+              {
+                "titulo": "Investigação Etiológica",
+                "paginas": [
+                  901
+                ]
+              },
+              {
+                "titulo": "Ressonância Magnética (RM)",
+                "paginas": [
+                  901
+                ]
+              }
+            ]
+          },
           {
             "topico": "Hemorragia Alveolar",
             "paginas": [
@@ -10598,32 +10879,6 @@
                 "titulo": "Acompanhamento",
                 "paginas": [
                   1178
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Hemorragia Intraparenquimatosa (HIP)",
-            "paginas": [
-              901
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Definição e Diagnóstico",
-                "paginas": [
-                  901
-                ]
-              },
-              {
-                "titulo": "Investigação Etiológica",
-                "paginas": [
-                  901
-                ]
-              },
-              {
-                "titulo": "Ressonância Magnética (RM)",
-                "paginas": [
-                  901
                 ]
               }
             ]
@@ -10797,16 +11052,21 @@
                 ]
               },
               {
-                "titulo": "Ventilação Não Invasiva com Pré-Oxigenação",
+                "titulo": "Dispneia nos Cuidados Paliativos",
                 "paginas": [
-                  1122
+                  1121
                 ]
               },
               {
-                "titulo": "Cânula Nasal de Alto Fluxo (CNAF)",
+                "titulo": "Trauma Torácico",
                 "paginas": [
-                  1122,
-                  1123
+                  1121
+                ]
+              },
+              {
+                "titulo": "Ventilação Não Invasiva com Pré-Oxigenação",
+                "paginas": [
+                  1122
                 ]
               },
               {
@@ -10822,6 +11082,13 @@
                 ]
               },
               {
+                "titulo": "Cânula Nasal de Alto Fluxo (CNAF)",
+                "paginas": [
+                  1122,
+                  1123
+                ]
+              },
+              {
                 "titulo": "Complicações",
                 "paginas": [
                   1123
@@ -10831,18 +11098,6 @@
                 "titulo": "Considerações Finais",
                 "paginas": [
                   1123
-                ]
-              },
-              {
-                "titulo": "Dispneia nos Cuidados Paliativos",
-                "paginas": [
-                  1121
-                ]
-              },
-              {
-                "titulo": "Trauma Torácico",
-                "paginas": [
-                  1121
                 ]
               }
             ]
@@ -11107,6 +11362,25 @@
                 "paginas": [
                   2332
                 ]
+              },
+              {
+                "titulo": "Massagem Cardíaca",
+                "paginas": [
+                  2333
+                ]
+              },
+              {
+                "titulo": "Medicações na Reanimação",
+                "paginas": [
+                  2333,
+                  2334
+                ]
+              },
+              {
+                "titulo": "Considerações Éticas na Reanimação",
+                "paginas": [
+                  2335
+                ]
               }
             ]
           }
@@ -11348,7 +11622,89 @@
           199,
           200
         ],
-        "topicos": []
+        "topicos": [
+          {
+            "topico": "Abdome Agudo",
+            "paginas": [
+              191,
+              192,
+              193,
+              194,
+              195,
+              196,
+              197,
+              198,
+              199,
+              200
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Abdome Agudo Inflamatório",
+                "paginas": [
+                  191,
+                  192,
+                  193
+                ]
+              },
+              {
+                "titulo": "Abdome Agudo Obstrutivo",
+                "paginas": [
+                  192,
+                  193,
+                  194
+                ]
+              },
+              {
+                "titulo": "Abdome Agudo Perfuro",
+                "paginas": [
+                  194,
+                  195
+                ]
+              },
+              {
+                "titulo": "Abdome Agudo Vascular",
+                "paginas": [
+                  195,
+                  196
+                ]
+              },
+              {
+                "titulo": "Abdome Agudo Hemorrágico",
+                "paginas": [
+                  196,
+                  197
+                ]
+              },
+              {
+                "titulo": "Diagnósticos Diferenciais",
+                "paginas": [
+                  197,
+                  198
+                ]
+              },
+              {
+                "titulo": "Avaliação Diagnóstica",
+                "paginas": [
+                  198,
+                  199
+                ]
+              },
+              {
+                "titulo": "Manejo",
+                "paginas": [
+                  199,
+                  200
+                ]
+              },
+              {
+                "titulo": "Acompanhamento",
+                "paginas": [
+                  200
+                ]
+              }
+            ]
+          }
+        ]
       },
       {
         "categoria": "Infecções sexualmente transmissíveis",
@@ -11364,6 +11720,33 @@
           1360
         ],
         "topicos": [
+          {
+            "topico": "Infecções Bacterianas",
+            "paginas": [
+              1284,
+              1285
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Escherichia coli",
+                "paginas": [
+                  1285
+                ]
+              },
+              {
+                "titulo": "Shigella spp.",
+                "paginas": [
+                  1285
+                ]
+              },
+              {
+                "titulo": "Salmonella spp.",
+                "paginas": [
+                  1285
+                ]
+              }
+            ]
+          },
           {
             "topico": "Infecções Sexualmente Transmissíveis (IST)",
             "paginas": [
@@ -11416,33 +11799,6 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Infecções Bacterianas",
-            "paginas": [
-              1284,
-              1285
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Escherichia coli",
-                "paginas": [
-                  1285
-                ]
-              },
-              {
-                "titulo": "Shigella spp.",
-                "paginas": [
-                  1285
-                ]
-              },
-              {
-                "titulo": "Salmonella spp.",
-                "paginas": [
-                  1285
-                ]
-              }
-            ]
           }
         ]
       },
@@ -11465,13 +11821,13 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
+                "titulo": "Pontos Principais",
                 "paginas": [
                   1334
                 ]
               },
               {
-                "titulo": "Pontos Principais",
+                "titulo": "Introdução",
                 "paginas": [
                   1334
                 ]
@@ -11489,6 +11845,12 @@
                 ]
               },
               {
+                "titulo": "POCUS",
+                "paginas": [
+                  1336
+                ]
+              },
+              {
                 "titulo": "Diagnóstico Diferencial",
                 "paginas": [
                   1336
@@ -11499,12 +11861,6 @@
                 "paginas": [
                   1336,
                   1337
-                ]
-              },
-              {
-                "titulo": "POCUS",
-                "paginas": [
-                  1336
                 ]
               },
               {
@@ -11544,13 +11900,13 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
+                "titulo": "Pontos Principais",
                 "paginas": [
                   1339
                 ]
               },
               {
-                "titulo": "Pontos Principais",
+                "titulo": "Introdução",
                 "paginas": [
                   1339
                 ]
@@ -11635,7 +11991,7 @@
     "secao": "SEÇÃO XI – EMERGÊNCIAS GINECOLÓGICAS E OBSTÉTRICAS",
     "categorias": [
       {
-        "categoria": "Emergências Ginecológicas e Obstétricas",
+        "categoria": "Sangramento vaginal na paciente não gestante",
         "paginas": [
           413,
           414,
@@ -11746,59 +12102,11 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Bloqueadores Neuromusculares na Gestação",
-            "paginas": [
-              411
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Classificação e Uso",
-                "paginas": [
-                  411
-                ]
-              },
-              {
-                "titulo": "Considerações sobre Opiáceos e Benzodiazepínicos",
-                "paginas": [
-                  411
-                ]
-              },
-              {
-                "titulo": "Classificação de Risco de Teratogenicidade",
-                "paginas": [
-                  411
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "MANEJO DA DISTÓCIA DE OMBRO",
-            "paginas": [
-              1431,
-              1432
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Manobras de manejo",
-                "paginas": [
-                  1431
-                ]
-              },
-              {
-                "titulo": "Parto Pélvico",
-                "paginas": [
-                  1431,
-                  1432
-                ]
-              }
-            ]
           }
         ]
       },
       {
-        "categoria": "Emergências Ginecológicas e Obstétricas",
+        "categoria": "Complicações pós-parto",
         "paginas": [
           1081,
           1082,
@@ -11813,7 +12121,40 @@
         ],
         "topicos": [
           {
-            "topico": "Complicações pós-parto",
+            "topico": "Complicações pós-IAM",
+            "paginas": [
+              1081,
+              1082
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Bradicardias e bloqueios atrioventriculares (BAV)",
+                "paginas": [
+                  1081
+                ]
+              },
+              {
+                "titulo": "Taquiarritmias",
+                "paginas": [
+                  1081
+                ]
+              },
+              {
+                "titulo": "Choque cardiogênico",
+                "paginas": [
+                  1081
+                ]
+              },
+              {
+                "titulo": "Complicações mecânicas do IAM",
+                "paginas": [
+                  1082
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "COMPLICAÇÕES PÓS-PARTO",
             "paginas": [
               1436,
               1437,
@@ -11863,6 +12204,52 @@
                 ]
               }
             ]
+          },
+          {
+            "topico": "Complicações oncológicas",
+            "paginas": [
+              1611,
+              1612
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Hiperleucocitose e leucostase",
+                "paginas": [
+                  1611
+                ]
+              },
+              {
+                "titulo": "Neutropenia febril",
+                "paginas": [
+                  1612
+                ]
+              },
+              {
+                "titulo": "Colite neutropênica",
+                "paginas": [
+                  1612
+                ]
+              },
+              {
+                "titulo": "Infiltração de sistema nervoso central",
+                "paginas": [
+                  1612
+                ]
+              },
+              {
+                "titulo": "Síndrome de lise tumoral",
+                "paginas": [
+                  1612
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Complicações não oncológicas",
+            "paginas": [
+              1612
+            ],
+            "subtopicos": []
           }
         ]
       },
@@ -12243,6 +12630,12 @@
                 ]
               },
               {
+                "titulo": "Trabalho de parto",
+                "paginas": [
+                  1424
+                ]
+              },
+              {
                 "titulo": "Avaliação da vitalidade fetal intraparto",
                 "paginas": [
                   1425,
@@ -12270,12 +12663,6 @@
                 "paginas": [
                   1430
                 ]
-              },
-              {
-                "titulo": "Trabalho de parto",
-                "paginas": [
-                  1424
-                ]
               }
             ]
           }
@@ -12287,75 +12674,17 @@
     "secao": "SEÇÃO XII – EMERGÊNCIAS ENDOCRINOLÓGICAS E METABÓLICAS",
     "categorias": [
       {
-        "categoria": "EMERGÊNCIAS ENDOCRINOLÓGICAS E METABÓLICAS",
+        "categoria": "Pessoa",
         "paginas": [
           271
         ],
         "topicos": [
           {
-            "topico": "Emergências Endocrinológicas",
+            "topico": "Relação interpessoal",
             "paginas": [
               271
             ],
             "subtopicos": []
-          },
-          {
-            "topico": "Emergências Metabólicas",
-            "paginas": [
-              271
-            ],
-            "subtopicos": []
-          },
-          {
-            "topico": "Tratamento das hiponatremias",
-            "paginas": [
-              1505
-            ]
-          },
-          {
-            "topico": "Tratamento das hipernatremias",
-            "paginas": [
-              1506
-            ]
-          },
-          {
-            "topico": "Manejo clínico farmacológico",
-            "paginas": [
-              1658,
-              1659
-            ]
-          },
-          {
-            "topico": "Medidas clínicas",
-            "paginas": [
-              1659
-            ]
-          },
-          {
-            "topico": "Medidas farmacológicas",
-            "paginas": [
-              1660
-            ]
-          },
-          {
-            "topico": "Tratamento farmacológico",
-            "paginas": [
-              1743
-            ]
-          },
-          {
-            "topico": "Droga",
-            "paginas": [
-              2321
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Ketamina",
-                "paginas": [
-                  2321
-                ]
-              }
-            ]
           }
         ]
       },
@@ -12374,6 +12703,32 @@
           1486
         ],
         "topicos": [
+          {
+            "topico": "Lesão Traqueobrônquica",
+            "paginas": [
+              354
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Anatomia e Fisiologia",
+                "paginas": [
+                  354
+                ]
+              },
+              {
+                "titulo": "Sintomas e Diagnóstico",
+                "paginas": [
+                  354
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  354
+                ]
+              }
+            ]
+          },
           {
             "topico": "Lesão renal aguda",
             "paginas": [
@@ -12605,6 +12960,18 @@
                 ]
               },
               {
+                "titulo": "Insuficiência Adrenal Secundária",
+                "paginas": [
+                  1491
+                ]
+              },
+              {
+                "titulo": "Insuficiência Adrenal Terciária",
+                "paginas": [
+                  1491
+                ]
+              },
+              {
                 "titulo": "Insuficiência Adrenal Relativa no Paciente Crítico",
                 "paginas": [
                   1491
@@ -12771,6 +13138,59 @@
             ]
           },
           {
+            "topico": "DISTÚRBIOS RESPIRATÓRIOS",
+            "paginas": [
+              1525,
+              1526
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Acidose Respiratória",
+                "paginas": [
+                  1525
+                ]
+              },
+              {
+                "titulo": "Causas de Hipercapnia",
+                "paginas": [
+                  1526
+                ]
+              },
+              {
+                "titulo": "Consequências da Hipercapnia",
+                "paginas": [
+                  1526
+                ]
+              },
+              {
+                "titulo": "Manejo",
+                "paginas": [
+                  1526
+                ]
+              },
+              {
+                "titulo": "Alcalose Respiratória (Hipocapnia)",
+                "paginas": [
+                  1526
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "ACOMPANHAMENTO DOS PACIENTES COM DISTÚRBIOS ÁCIDO-BASE",
+            "paginas": [
+              1527
+            ],
+            "subtopicos": []
+          },
+          {
+            "topico": "ERROS COMUNS NO MANEJO DOS DISTÚRBIOS ÁCIDO-BASE NA EMERGÊNCIA",
+            "paginas": [
+              1527
+            ],
+            "subtopicos": []
+          },
+          {
             "topico": "Distúrbios Hidroeletrolíticos",
             "paginas": [
               1531,
@@ -12851,64 +13271,11 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "ACOMPANHAMENTO DOS PACIENTES COM DISTÚRBIOS ÁCIDO-BASE",
-            "paginas": [
-              1527
-            ],
-            "subtopicos": []
-          },
-          {
-            "topico": "ERROS COMUNS NO MANEJO DOS DISTÚRBIOS ÁCIDO-BASE NA EMERGÊNCIA",
-            "paginas": [
-              1527
-            ],
-            "subtopicos": []
-          },
-          {
-            "topico": "DISTÚRBIOS RESPIRATÓRIOS",
-            "paginas": [
-              1525,
-              1526
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Acidose Respiratória",
-                "paginas": [
-                  1525
-                ]
-              },
-              {
-                "titulo": "Causas de Hipercapnia",
-                "paginas": [
-                  1526
-                ]
-              },
-              {
-                "titulo": "Consequências da Hipercapnia",
-                "paginas": [
-                  1526
-                ]
-              },
-              {
-                "titulo": "Manejo",
-                "paginas": [
-                  1526
-                ]
-              },
-              {
-                "titulo": "Alcalose Respiratória (Hipocapnia)",
-                "paginas": [
-                  1526
-                ]
-              }
-            ]
           }
         ]
       },
       {
-        "categoria": "Emergências Endocrinológicas",
+        "categoria": "Emergências tireoidianas",
         "paginas": [
           1540
         ],
@@ -12958,43 +13325,6 @@
         ],
         "topicos": [
           {
-            "topico": "Manejo da dor oncológica",
-            "paginas": [
-              1636,
-              1637,
-              1638,
-              1639,
-              1640
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Introdução",
-                "paginas": [
-                  1636
-                ]
-              },
-              {
-                "titulo": "Avaliação da dor",
-                "paginas": [
-                  1637,
-                  1638
-                ]
-              },
-              {
-                "titulo": "Abordagem multidisciplinar",
-                "paginas": [
-                  1639
-                ]
-              },
-              {
-                "titulo": "Tratamento medicamentoso",
-                "paginas": [
-                  1640
-                ]
-              }
-            ]
-          },
-          {
             "topico": "Manejo da Dor Lombar",
             "paginas": [
               215,
@@ -13035,66 +13365,6 @@
             ]
           },
           {
-            "topico": "DOENÇA DE BEHÇET",
-            "paginas": [
-              1870
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Características e Diagnóstico",
-                "paginas": [
-                  1870
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Complicações oncológicas",
-            "paginas": [
-              1611,
-              1612
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Hiperleucocitose e leucostase",
-                "paginas": [
-                  1611
-                ]
-              },
-              {
-                "titulo": "Neutropenia febril",
-                "paginas": [
-                  1612
-                ]
-              },
-              {
-                "titulo": "Colite neutropênica",
-                "paginas": [
-                  1612
-                ]
-              },
-              {
-                "titulo": "Infiltração de sistema nervoso central",
-                "paginas": [
-                  1612
-                ]
-              },
-              {
-                "titulo": "Síndrome de lise tumoral",
-                "paginas": [
-                  1612
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Complicações não oncológicas",
-            "paginas": [
-              1612
-            ],
-            "subtopicos": []
-          },
-          {
             "topico": "Manejo da Sífilis",
             "paginas": [
               1352,
@@ -13117,73 +13387,60 @@
             ]
           },
           {
-            "topico": "Emergências em coagulopatias adquiridas",
+            "topico": "MANEJO DA DISTÓCIA DE OMBRO",
             "paginas": [
-              1565,
-              1566,
-              1567,
-              1568,
-              1569
+              1431,
+              1432
             ],
             "subtopicos": [
               {
-                "titulo": "Hemofilia A adquirida",
+                "titulo": "Manobras de manejo",
                 "paginas": [
-                  1565,
-                  1566,
-                  1567,
-                  1568,
-                  1569
+                  1431
                 ]
               },
               {
-                "titulo": "Síndrome de von Willebrand adquirida (sVWa)",
+                "titulo": "Parto Pélvico",
                 "paginas": [
-                  1568,
-                  1569
+                  1431,
+                  1432
                 ]
               }
             ]
           },
           {
-            "topico": "Crise Vaso-Oclusiva",
+            "topico": "Manejo da dor oncológica",
             "paginas": [
-              1581,
-              1582,
-              1583
+              1636,
+              1637,
+              1638,
+              1639,
+              1640
             ],
             "subtopicos": [
               {
-                "titulo": "Definição e Incidência",
+                "titulo": "Introdução",
                 "paginas": [
-                  1581
+                  1636
                 ]
               },
               {
-                "titulo": "Fatores Desencadeantes",
+                "titulo": "Avaliação da dor",
                 "paginas": [
-                  1581,
-                  1582
+                  1637,
+                  1638
                 ]
               },
               {
-                "titulo": "Manejo da Dor",
+                "titulo": "Abordagem multidisciplinar",
                 "paginas": [
-                  1582,
-                  1583
+                  1639
                 ]
               },
               {
-                "titulo": "Protocolos de Tratamento",
+                "titulo": "Tratamento medicamentoso",
                 "paginas": [
-                  1582,
-                  1583
-                ]
-              },
-              {
-                "titulo": "Considerações sobre Analgesia",
-                "paginas": [
-                  1583
+                  1640
                 ]
               }
             ]
@@ -13216,6 +13473,12 @@
               1579
             ],
             "subtopicos": [
+              {
+                "titulo": "Pontos principais",
+                "paginas": [
+                  1572
+                ]
+              },
               {
                 "titulo": "Introdução",
                 "paginas": [
@@ -13250,12 +13513,6 @@
                 ]
               },
               {
-                "titulo": "Pontos principais",
-                "paginas": [
-                  1572
-                ]
-              },
-              {
                 "titulo": "Considerações finais",
                 "paginas": [
                   1579
@@ -13280,13 +13537,13 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
+                "titulo": "Pontos principais",
                 "paginas": [
                   1579
                 ]
               },
               {
-                "titulo": "Pontos principais",
+                "titulo": "Introdução",
                 "paginas": [
                   1579
                 ]
@@ -13303,7 +13560,16 @@
           1593,
           1594,
           1595,
-          1596
+          1596,
+          2104,
+          2105,
+          2113,
+          2114,
+          2115,
+          2116,
+          2117,
+          2118,
+          2119
         ],
         "topicos": [
           {
@@ -13358,6 +13624,97 @@
                 "titulo": "Acompanhamento",
                 "paginas": [
                   1596
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Plantas causadoras de síndrome hepatotóxica",
+            "paginas": [
+              2104,
+              2105
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Manifestações clínicas",
+                "paginas": [
+                  2105
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  2105
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "PLANTAS CAUSADORAS DE SÍNDROME CIANOGÊNICA",
+            "paginas": [
+              2113,
+              2114
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Manifestações clínicas",
+                "paginas": [
+                  2113
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  2114
+                ]
+              },
+              {
+                "titulo": "Mandioca-brava, mandioca-amarga, manipeba",
+                "paginas": [
+                  2114
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "PLANTAS CAUSADORAS DE SÍNDROME CARDIOTÓXICA",
+            "paginas": [
+              2115,
+              2116,
+              2117
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Manifestações clínicas",
+                "paginas": [
+                  2116
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  2117
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "PLANTAS CAUSADORAS DE SÍNDROME ATROPÍNICA OU ANTICOLINÉRGICA",
+            "paginas": [
+              2118,
+              2119
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Manifestações clínicas",
+                "paginas": [
+                  2119
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  2119
                 ]
               }
             ]
@@ -13844,6 +14201,44 @@
         ],
         "topicos": [
           {
+            "topico": "Profilaxia da raiva",
+            "paginas": [
+              481,
+              482,
+              483,
+              484
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Orientações sobre profilaxia",
+                "paginas": [
+                  481,
+                  482
+                ]
+              },
+              {
+                "titulo": "Tabela 3: Profilaxia contra raiva humana",
+                "paginas": [
+                  482,
+                  483
+                ]
+              },
+              {
+                "titulo": "Esquemas de reexposição",
+                "paginas": [
+                  483,
+                  484
+                ]
+              },
+              {
+                "titulo": "Aplicação do soro antirrábico",
+                "paginas": [
+                  484
+                ]
+              }
+            ]
+          },
+          {
             "topico": "Raiva",
             "paginas": [
               1770
@@ -13903,153 +14298,18 @@
                 ]
               },
               {
+                "titulo": "Profilaxia",
+                "paginas": [
+                  1773,
+                  1774,
+                  1775
+                ]
+              },
+              {
                 "titulo": "Tratamento",
                 "paginas": [
                   1776,
                   1777
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Profilaxia da raiva",
-            "paginas": [
-              481,
-              482,
-              483,
-              484
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Orientações sobre profilaxia",
-                "paginas": [
-                  481,
-                  482
-                ]
-              },
-              {
-                "titulo": "Tabela 3: Profilaxia contra raiva humana",
-                "paginas": [
-                  482,
-                  483
-                ]
-              },
-              {
-                "titulo": "Esquemas de reexposição",
-                "paginas": [
-                  483,
-                  484
-                ]
-              },
-              {
-                "titulo": "Aplicação do soro antirrábico",
-                "paginas": [
-                  484
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Triagem de resistência à rifampicina",
-            "paginas": [
-              1741
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Indicações do TRM-TB",
-                "paginas": [
-                  1741
-                ]
-              },
-              {
-                "titulo": "Métodos de coleta de amostras",
-                "paginas": [
-                  1741
-                ]
-              },
-              {
-                "titulo": "Interpretação dos resultados",
-                "paginas": [
-                  1741
-                ]
-              },
-              {
-                "titulo": "Diagnóstico da infecção lactente pelo M. tuberculosis",
-                "paginas": [
-                  1741
-                ]
-              },
-              {
-                "titulo": "Importância da combinação de métodos diagnósticos",
-                "paginas": [
-                  1741
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Atendimento pré-hospitalar",
-            "paginas": [
-              2061
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Intoxicações graves medicamentosas ou por substâncias ilícitas",
-                "paginas": [
-                  2061
-                ]
-              },
-              {
-                "titulo": "Identificação do agente toxicológico",
-                "paginas": [
-                  2061
-                ]
-              },
-              {
-                "titulo": "Medidas de descontaminação",
-                "paginas": [
-                  2061
-                ]
-              },
-              {
-                "titulo": "História clínica e avaliação inicial",
-                "paginas": [
-                  2061
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Doença Citomegálica",
-            "paginas": [
-              1703,
-              1704
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Diagnóstico",
-                "paginas": [
-                  1703
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  1704
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Drogas emergentes",
-            "paginas": [
-              2070
-            ],
-            "subtopicos": [
-              {
-                "titulo": "K2 ou K9",
-                "paginas": [
-                  2070
                 ]
               }
             ]
@@ -14160,6 +14420,12 @@
                 "paginas": [
                   1674
                 ]
+              },
+              {
+                "titulo": "Ultrassonografia pulmonar",
+                "paginas": [
+                  1674
+                ]
               }
             ]
           }
@@ -14226,7 +14492,7 @@
         ]
       },
       {
-        "categoria": "EMERGÊNCIAS INFECCIOSAS",
+        "categoria": "HIV",
         "paginas": [
           1691,
           1692,
@@ -14349,6 +14615,26 @@
         ],
         "topicos": [
           {
+            "topico": "Tuberculose Meningoencefálica",
+            "paginas": [
+              1702
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Diagnóstico",
+                "paginas": [
+                  1702
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  1702
+                ]
+              }
+            ]
+          },
+          {
             "topico": "Tuberculose",
             "paginas": [
               1736,
@@ -14381,26 +14667,6 @@
                 "titulo": "Avaliação Diagnóstica",
                 "paginas": [
                   1740
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "Tuberculose Meningoencefálica",
-            "paginas": [
-              1702
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Diagnóstico",
-                "paginas": [
-                  1702
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  1702
                 ]
               }
             ]
@@ -14448,7 +14714,7 @@
         ]
       },
       {
-        "categoria": "Emergências Infecciosas",
+        "categoria": "Tétano",
         "paginas": [
           1716,
           1717,
@@ -14502,7 +14768,7 @@
         ]
       },
       {
-        "categoria": "Emergências Infecciosas",
+        "categoria": "Arboviroses",
         "paginas": [
           1724,
           1725,
@@ -14615,7 +14881,7 @@
         ]
       },
       {
-        "categoria": "EMERGÊNCIAS INFECCIOSAS",
+        "categoria": "Febre amarela",
         "paginas": [
           1753,
           1754,
@@ -14715,6 +14981,12 @@
                 ]
               },
               {
+                "titulo": "Estruturação de Raciocínio",
+                "paginas": [
+                  1759
+                ]
+              },
+              {
                 "titulo": "Princípios Básicos dos Antimicrobianos",
                 "paginas": [
                   1759,
@@ -14743,12 +15015,6 @@
                 "titulo": "Escolha da Antibioticoterapia",
                 "paginas": [
                   2313
-                ]
-              },
-              {
-                "titulo": "Estruturação de Raciocínio",
-                "paginas": [
-                  1759
                 ]
               }
             ]
@@ -15000,13 +15266,6 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Ultrassonografia de tórax",
-            "paginas": [
-              1191
-            ],
-            "subtopicos": []
           }
         ]
       },
@@ -15357,7 +15616,7 @@
         ]
       },
       {
-        "categoria": "ULTRASSONOGRAFIA PARA O EMERGENCISTA",
+        "categoria": "Particularidades na ultrassonografia à beira do leito na pediatria",
         "paginas": [
           1651,
           1653,
@@ -15666,6 +15925,12 @@
             ],
             "subtopicos": [
               {
+                "titulo": "Pontos principais",
+                "paginas": [
+                  2262
+                ]
+              },
+              {
                 "titulo": "Introdução",
                 "paginas": [
                   2262
@@ -15686,16 +15951,16 @@
                 ]
               },
               {
+                "titulo": "Dicas",
+                "paginas": [
+                  2265
+                ]
+              },
+              {
                 "titulo": "Medidas",
                 "paginas": [
                   2265,
                   2266
-                ]
-              },
-              {
-                "titulo": "Dicas",
-                "paginas": [
-                  2265
                 ]
               },
               {
@@ -15705,12 +15970,6 @@
                   2267,
                   2268,
                   2269
-                ]
-              },
-              {
-                "titulo": "Pontos principais",
-                "paginas": [
-                  2262
                 ]
               },
               {
@@ -15755,13 +16014,13 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
+                "titulo": "Pontos principais",
                 "paginas": [
                   2272
                 ]
               },
               {
-                "titulo": "Pontos principais",
+                "titulo": "Introdução",
                 "paginas": [
                   2272
                 ]
@@ -15773,13 +16032,19 @@
                 ]
               },
               {
-                "titulo": "Avaliação pré-procedimento",
+                "titulo": "Terapêutica",
+                "paginas": [
+                  2274
+                ]
+              },
+              {
+                "titulo": "Contraindicações para realização de uma toracocentese",
                 "paginas": [
                   2276
                 ]
               },
               {
-                "titulo": "Contraindicações para realização de uma toracocentese",
+                "titulo": "Avaliação pré-procedimento",
                 "paginas": [
                   2276
                 ]
@@ -15794,12 +16059,6 @@
                 "titulo": "Técnica de punção",
                 "paginas": [
                   2279
-                ]
-              },
-              {
-                "titulo": "Terapêutica",
-                "paginas": [
-                  2274
                 ]
               }
             ]
@@ -15868,7 +16127,69 @@
           1568,
           1569
         ],
-        "topicos": []
+        "topicos": [
+          {
+            "topico": "SEÇÃO XVI – EMERGÊNCIAS EM DERMATOLOGIA E IMUNOLOGIA",
+            "paginas": [
+              56
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Síndrome de Steven-Johnson e necrólise epidérmica tóxica",
+                "paginas": [
+                  56
+                ]
+              },
+              {
+                "titulo": "Erisipela e celulite",
+                "paginas": [
+                  56
+                ]
+              },
+              {
+                "titulo": "Anafilaxia",
+                "paginas": [
+                  56
+                ]
+              },
+              {
+                "titulo": "Urticária e eritema multiforme",
+                "paginas": [
+                  56
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Emergências em coagulopatias adquiridas",
+            "paginas": [
+              1565,
+              1566,
+              1567,
+              1568,
+              1569
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Hemofilia A adquirida",
+                "paginas": [
+                  1565,
+                  1566,
+                  1567,
+                  1568,
+                  1569
+                ]
+              },
+              {
+                "titulo": "Síndrome de von Willebrand adquirida (sVWa)",
+                "paginas": [
+                  1568,
+                  1569
+                ]
+              }
+            ]
+          }
+        ]
       },
       {
         "categoria": "Epistaxe",
@@ -16096,12 +16417,6 @@
                 ]
               },
               {
-                "titulo": "Sintomas Sugestivos de Rinossinusite Aguda",
-                "paginas": [
-                  1830
-                ]
-              },
-              {
                 "titulo": "Apresentação Clínica",
                 "paginas": [
                   1827
@@ -16123,6 +16438,12 @@
                 "titulo": "Manejo",
                 "paginas": [
                   1829
+                ]
+              },
+              {
+                "titulo": "Sintomas Sugestivos de Rinossinusite Aguda",
+                "paginas": [
+                  1830
                 ]
               }
             ]
@@ -16247,74 +16568,6 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Lúpus eritematoso sistêmico",
-            "paginas": [
-              1871,
-              1872,
-              1873
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Características da doença",
-                "paginas": [
-                  1871,
-                  1872
-                ]
-              },
-              {
-                "titulo": "Diagnóstico",
-                "paginas": [
-                  1872,
-                  1873
-                ]
-              },
-              {
-                "titulo": "Manifestações clínicas",
-                "paginas": [
-                  1872
-                ]
-              },
-              {
-                "titulo": "Critérios EULAR/ACR",
-                "paginas": [
-                  1873
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "SEÇÃO XVI – EMERGÊNCIAS EM DERMATOLOGIA E IMUNOLOGIA",
-            "paginas": [
-              56
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Síndrome de Steven-Johnson e necrólise epidérmica tóxica",
-                "paginas": [
-                  56
-                ]
-              },
-              {
-                "titulo": "Erisipela e celulite",
-                "paginas": [
-                  56
-                ]
-              },
-              {
-                "titulo": "Anafilaxia",
-                "paginas": [
-                  56
-                ]
-              },
-              {
-                "titulo": "Urticária e eritema multiforme",
-                "paginas": [
-                  56
-                ]
-              }
-            ]
           }
         ]
       },
@@ -16341,13 +16594,13 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
+                "titulo": "Pontos principais",
                 "paginas": [
                   1845
                 ]
               },
               {
-                "titulo": "Pontos principais",
+                "titulo": "Introdução",
                 "paginas": [
                   1845
                 ]
@@ -16482,7 +16735,7 @@
             ]
           },
           {
-            "topico": "Eritema Multiforme",
+            "topico": "ERITEMA MULTIFORME",
             "paginas": [
               1862
             ],
@@ -16593,7 +16846,7 @@
     "secao": "SEÇÃO XVIII – INTOXICAÇÃO EXÓGENA",
     "categorias": [
       {
-        "categoria": "Intoxicação Exógena",
+        "categoria": "Outras drogas de abuso",
         "paginas": [
           76,
           77,
@@ -16660,87 +16913,11 @@
                 ]
               }
             ]
-          },
-          {
-            "topico": "Antídotos",
-            "paginas": [
-              535
-            ]
-          },
-          {
-            "topico": "PLANTAS CAUSADORAS DE SÍNDROME CIANOGÊNICA",
-            "paginas": [
-              2113,
-              2114
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Manifestações clínicas",
-                "paginas": [
-                  2113
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  2114
-                ]
-              },
-              {
-                "titulo": "Mandioca-brava, mandioca-amarga, manipeba",
-                "paginas": [
-                  2114
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "PLANTAS CAUSADORAS DE SÍNDROME CARDIOTÓXICA",
-            "paginas": [
-              2115,
-              2116,
-              2117
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Manifestações clínicas",
-                "paginas": [
-                  2116
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  2117
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "PLANTAS CAUSADORAS DE SÍNDROME ATROPÍNICA OU ANTICOLINÉRGICA",
-            "paginas": [
-              2118,
-              2119
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Manifestações clínicas",
-                "paginas": [
-                  2119
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  2119
-                ]
-              }
-            ]
           }
         ]
       },
       {
-        "categoria": "Intoxicação Exógena",
+        "categoria": "Antidepressivos tricíclicos e inibidores seletivos da recaptação de serotonina",
         "paginas": [
           1451,
           1947,
@@ -16755,6 +16932,32 @@
           1956
         ],
         "topicos": [
+          {
+            "topico": "Antidepressivos",
+            "paginas": [
+              1451
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Tricíclicos",
+                "paginas": [
+                  1451
+                ]
+              },
+              {
+                "titulo": "Inibidores seletivos da recaptação de serotonina",
+                "paginas": [
+                  1451
+                ]
+              },
+              {
+                "titulo": "Inibidores seletivos da receptação de serotonina e noradrenalina",
+                "paginas": [
+                  1451
+                ]
+              }
+            ]
+          },
           {
             "topico": "Antidepressivos Tricíclicos e Inibidores Seletivos da Recaptação de Serotonina",
             "paginas": [
@@ -16884,18 +17087,6 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução aos Anticonvulsivantes",
-                "paginas": [
-                  1958
-                ]
-              },
-              {
-                "titulo": "Diagnósticos Diferenciais",
-                "paginas": [
-                  1959
-                ]
-              },
-              {
                 "titulo": "Lamotrigina",
                 "paginas": [
                   1451
@@ -16914,6 +17105,18 @@
                 ]
               },
               {
+                "titulo": "Introdução aos Anticonvulsivantes",
+                "paginas": [
+                  1958
+                ]
+              },
+              {
+                "titulo": "Diagnósticos Diferenciais",
+                "paginas": [
+                  1959
+                ]
+              },
+              {
                 "titulo": "Fenobarbital",
                 "paginas": [
                   1959,
@@ -16925,7 +17128,7 @@
         ]
       },
       {
-        "categoria": "Intoxicação Exógena",
+        "categoria": "Lítio e antipsicóticos",
         "paginas": [
           1451,
           1452,
@@ -16940,24 +17143,58 @@
         ],
         "topicos": [
           {
-            "topico": "Intoxicação por Lítio",
+            "topico": "Antipsicóticos",
+            "paginas": [
+              1451,
+              1452
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Antipsicóticos típicos",
+                "paginas": [
+                  1451
+                ]
+              },
+              {
+                "titulo": "Haloperidol",
+                "paginas": [
+                  1452
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Intoxicação por Lítio e Antipsicóticos",
             "paginas": [
               2003,
               2004,
               2005,
               2006,
-              2007
-            ],
-            "subtopicos": []
-          },
-          {
-            "topico": "Intoxicação por Antipsicóticos",
-            "paginas": [
+              2007,
               2008,
               2009,
               2010
             ],
-            "subtopicos": []
+            "subtopicos": [
+              {
+                "titulo": "Intoxicação por Lítio",
+                "paginas": [
+                  2003,
+                  2004,
+                  2005,
+                  2006,
+                  2007
+                ]
+              },
+              {
+                "titulo": "Intoxicação por Antipsicóticos",
+                "paginas": [
+                  2008,
+                  2009,
+                  2010
+                ]
+              }
+            ]
           }
         ]
       },
@@ -17015,6 +17252,51 @@
                 "titulo": "Relações de Equipotência e Rotação de Opioides",
                 "paginas": [
                   1644
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Opioides",
+            "paginas": [
+              2015,
+              2016,
+              2017,
+              2018,
+              2019,
+              2020
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Introdução",
+                "paginas": [
+                  2015
+                ]
+              },
+              {
+                "titulo": "Tabela de opioides",
+                "paginas": [
+                  2016
+                ]
+              },
+              {
+                "titulo": "Apresentação clínica",
+                "paginas": [
+                  2017,
+                  2018
+                ]
+              },
+              {
+                "titulo": "Abordagem diagnóstica",
+                "paginas": [
+                  2019,
+                  2020
+                ]
+              },
+              {
+                "titulo": "Diagnósticos diferenciais",
+                "paginas": [
+                  2020
                 ]
               }
             ]
@@ -17253,7 +17535,7 @@
         ]
       },
       {
-        "categoria": "Intoxicação Exógena",
+        "categoria": "Anti-inflamatórios não esteroidais e ácido acetilsalicílico",
         "paginas": [
           1927,
           1928,
@@ -17455,7 +17737,9 @@
           1977,
           1978,
           1979,
-          1980
+          1980,
+          2070,
+          2321
         ],
         "topicos": [
           {
@@ -17523,6 +17807,34 @@
                 "titulo": "Diuréticos e Hidralazina",
                 "paginas": [
                   1980
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Drogas emergentes",
+            "paginas": [
+              2070
+            ],
+            "subtopicos": [
+              {
+                "titulo": "K2 ou K9",
+                "paginas": [
+                  2070
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Droga",
+            "paginas": [
+              2321
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Ketamina",
+                "paginas": [
+                  2321
                 ]
               }
             ]
@@ -17751,13 +18063,13 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Introdução",
+                "titulo": "Pontos Principais",
                 "paginas": [
                   2025
                 ]
               },
               {
-                "titulo": "Pontos Principais",
+                "titulo": "Introdução",
                 "paginas": [
                   2025
                 ]
@@ -17777,15 +18089,15 @@
                 ]
               },
               {
-                "titulo": "Organofosforados e Carbamatos",
+                "titulo": "Piretroides e Piretrinas",
                 "paginas": [
+                  2027,
                   2028
                 ]
               },
               {
-                "titulo": "Piretroides e Piretrinas",
+                "titulo": "Organofosforados e Carbamatos",
                 "paginas": [
-                  2027,
                   2028
                 ]
               },
@@ -17826,13 +18138,7 @@
             ],
             "subtopicos": [
               {
-                "titulo": "Ácido Fluorídrico",
-                "paginas": [
-                  2056
-                ]
-              },
-              {
-                "titulo": "Ácido Oxálico",
+                "titulo": "Paraquat",
                 "paginas": [
                   2056
                 ]
@@ -17844,7 +18150,13 @@
                 ]
               },
               {
-                "titulo": "Paraquat",
+                "titulo": "Ácido Oxálico",
+                "paginas": [
+                  2056
+                ]
+              },
+              {
+                "titulo": "Ácido Fluorídrico",
                 "paginas": [
                   2056
                 ]
@@ -17854,7 +18166,7 @@
         ]
       },
       {
-        "categoria": "Intoxicação por Metais Pesados",
+        "categoria": "Ferro e outros metais pesados",
         "paginas": [
           2082,
           2083,
@@ -18061,37 +18373,6 @@
         ],
         "topicos": [
           {
-            "topico": "Sepse e Choque Séptico",
-            "paginas": [
-              2306,
-              2307,
-              2308,
-              2309,
-              2310
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Introdução à Sepse",
-                "paginas": [
-                  2306
-                ]
-              },
-              {
-                "titulo": "Diagnóstico e Reconhecimento Precoce",
-                "paginas": [
-                  2307
-                ]
-              },
-              {
-                "titulo": "Tratamento da Primeira Hora",
-                "paginas": [
-                  2309,
-                  2310
-                ]
-              }
-            ]
-          },
-          {
             "topico": "Circulação e Choque Hemorrágico",
             "paginas": [
               292,
@@ -18133,23 +18414,34 @@
             ]
           },
           {
-            "topico": "Esquema de tratamento em crianças",
+            "topico": "Sepse e Choque Séptico",
             "paginas": [
-              1743,
-              1744
-            ]
-          },
-          {
-            "topico": "Critérios de internação e alta hospitalar",
-            "paginas": [
-              1744,
-              1745
-            ]
-          },
-          {
-            "topico": "Vacinação",
-            "paginas": [
-              1745
+              2306,
+              2307,
+              2308,
+              2309,
+              2310
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Introdução à Sepse",
+                "paginas": [
+                  2306
+                ]
+              },
+              {
+                "titulo": "Diagnóstico e Reconhecimento Precoce",
+                "paginas": [
+                  2307
+                ]
+              },
+              {
+                "titulo": "Tratamento da Primeira Hora",
+                "paginas": [
+                  2309,
+                  2310
+                ]
+              }
             ]
           }
         ]
@@ -18286,6 +18578,49 @@
             ]
           },
           {
+            "topico": "Crise Vaso-Oclusiva",
+            "paginas": [
+              1581,
+              1582,
+              1583
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Definição e Incidência",
+                "paginas": [
+                  1581
+                ]
+              },
+              {
+                "titulo": "Fatores Desencadeantes",
+                "paginas": [
+                  1581,
+                  1582
+                ]
+              },
+              {
+                "titulo": "Manejo da Dor",
+                "paginas": [
+                  1582,
+                  1583
+                ]
+              },
+              {
+                "titulo": "Protocolos de Tratamento",
+                "paginas": [
+                  1582,
+                  1583
+                ]
+              },
+              {
+                "titulo": "Considerações sobre Analgesia",
+                "paginas": [
+                  1583
+                ]
+              }
+            ]
+          },
+          {
             "topico": "Crise Convulsiva",
             "paginas": [
               2337,
@@ -18329,41 +18664,6 @@
         ],
         "topicos": [
           {
-            "topico": "Doença Falciforme",
-            "paginas": [
-              2317,
-              2318,
-              2319,
-              2320
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Introdução e Epidemiologia",
-                "paginas": [
-                  2317
-                ]
-              },
-              {
-                "titulo": "Apresentação Clínica e Diagnósticos Diferenciais",
-                "paginas": [
-                  2318
-                ]
-              },
-              {
-                "titulo": "Tratamento",
-                "paginas": [
-                  2319
-                ]
-              },
-              {
-                "titulo": "Febre e Infecções",
-                "paginas": [
-                  2320
-                ]
-              }
-            ]
-          },
-          {
             "topico": "Manejo Terapêutico da Doença Falciforme",
             "paginas": [
               1581
@@ -18405,6 +18705,41 @@
                 "titulo": "Situação no Brasil",
                 "paginas": [
                   1581
+                ]
+              }
+            ]
+          },
+          {
+            "topico": "Doença Falciforme",
+            "paginas": [
+              2317,
+              2318,
+              2319,
+              2320
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Introdução e Epidemiologia",
+                "paginas": [
+                  2317
+                ]
+              },
+              {
+                "titulo": "Apresentação Clínica e Diagnósticos Diferenciais",
+                "paginas": [
+                  2318
+                ]
+              },
+              {
+                "titulo": "Tratamento",
+                "paginas": [
+                  2319
+                ]
+              },
+              {
+                "titulo": "Febre e Infecções",
+                "paginas": [
+                  2320
                 ]
               }
             ]
@@ -18877,6 +19212,12 @@
                 "paginas": [
                   2409
                 ]
+              },
+              {
+                "titulo": "Acreditação no departamento de emergência",
+                "paginas": [
+                  2409
+                ]
               }
             ]
           }
@@ -18934,6 +19275,37 @@
             "subtopicos": []
           },
           {
+            "topico": "ESTRATIFICAÇÃO DE RISCO ALÉM DA TROPONINA",
+            "paginas": [
+              1091,
+              1092,
+              1093,
+              1094
+            ],
+            "subtopicos": [
+              {
+                "titulo": "Pacientes classificados como rule-out com troponina convencional",
+                "paginas": [
+                  1091,
+                  1092
+                ]
+              },
+              {
+                "titulo": "Estratificação não invasiva",
+                "paginas": [
+                  1093,
+                  1094
+                ]
+              },
+              {
+                "titulo": "Pacientes classificados como rule-out com troponina US",
+                "paginas": [
+                  1094
+                ]
+              }
+            ]
+          },
+          {
             "topico": "Protocolos de classificação de risco",
             "paginas": [
               2395,
@@ -18988,37 +19360,6 @@
                 "titulo": "Considerações Finais",
                 "paginas": [
                   2400
-                ]
-              }
-            ]
-          },
-          {
-            "topico": "ESTRATIFICAÇÃO DE RISCO ALÉM DA TROPONINA",
-            "paginas": [
-              1091,
-              1092,
-              1093,
-              1094
-            ],
-            "subtopicos": [
-              {
-                "titulo": "Pacientes classificados como rule-out com troponina convencional",
-                "paginas": [
-                  1091,
-                  1092
-                ]
-              },
-              {
-                "titulo": "Estratificação não invasiva",
-                "paginas": [
-                  1093,
-                  1094
-                ]
-              },
-              {
-                "titulo": "Pacientes classificados como rule-out com troponina US",
-                "paginas": [
-                  1094
                 ]
               }
             ]
@@ -19159,41 +19500,35 @@
                 ]
               }
             ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "secao": "Seção V – INTERVENÇÕES E PROCEDIMENTOS",
-    "categorias": [
-      {
-        "categoria": "Itens Movidos",
-        "paginas": [],
-        "topicos": [
+          },
           {
-            "topico": "Indução e paralisia",
+            "topico": "Definições dos diferentes aparelhos do sistema de atendimento de urgência e emergência",
             "paginas": [
-              582,
-              583
+              2405
             ],
             "subtopicos": [
               {
-                "titulo": "Agentes de Indução",
+                "titulo": "Atendimento pré-hospitalar fixo",
                 "paginas": [
-                  582
+                  2405
                 ]
               },
               {
-                "titulo": "Sedativos",
+                "titulo": "Unidades não hospitalares de atendimento às urgências e emergências",
                 "paginas": [
-                  582
+                  2405
                 ]
               },
               {
-                "titulo": "Bloqueadores Neuromusculares",
+                "titulo": "Unidade de atendimento pré-hospitalar móvel",
                 "paginas": [
-                  583
+                  2405
+                ]
+              },
+              {
+                "titulo": "Unidades hospitalares de atendimento às urgências e emergências",
+                "paginas": [
+                  2405
                 ]
               }
             ]
