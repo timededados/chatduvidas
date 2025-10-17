@@ -184,65 +184,73 @@ async function semanticSearchSummary(sumario, question) {
   try {
     logSection("Busca Semântica no Sumário - Início");
     
-    // 1. Preparar estrutura simplificada do sumário para o modelo
-    const summaryStructure = sumario.map(secao => {
-      const categorias = (secao.categorias || []).map(cat => {
-        const topicos = (cat.topicos || []).map(top => {
-          const subtopicos = (top.subtopicos || []).map(sub => ({
-            titulo: sub.titulo,
-            paginas: sub.paginas || []
-          }));
+    // 1. Preparar estrutura IGNORANDO nomes de seções enganosos
+    // ✅ Foca apenas em: categoria > tópico > subtópico
+    const flatStructure = [];
+    
+    for (const secao of sumario) {
+      for (const cat of secao.categorias || []) {
+        for (const top of cat.topicos || []) {
+          for (const sub of top.subtopicos || []) {
+            flatStructure.push({
+              categoria: cat.categoria,
+              topico: top.topico,
+              subtopico: sub.titulo,
+              paginas: sub.paginas || [],
+              // Mantém referência interna para busca posterior
+              _secao: secao.secao
+            });
+          }
           
-          return {
-            topico: top.topico,
-            paginas: top.paginas || [],
-            subtopicos
-          };
-        });
+          // Adiciona tópico sem subtópicos também
+          if (!top.subtopicos || top.subtopicos.length === 0) {
+            flatStructure.push({
+              categoria: cat.categoria,
+              topico: top.topico,
+              subtopico: null,
+              paginas: top.paginas || [],
+              _secao: secao.secao
+            });
+          }
+        }
         
-        return {
-          categoria: cat.categoria,
-          paginas: cat.paginas || [],
-          topicos
-        };
-      });
-      
-      return {
-        secao: secao.secao,
-        categorias
-      };
-    });
+        // Adiciona categoria sem tópicos também
+        if (!cat.topicos || cat.topicos.length === 0) {
+          flatStructure.push({
+            categoria: cat.categoria,
+            topico: null,
+            subtopico: null,
+            paginas: cat.paginas || [],
+            _secao: secao.secao
+          });
+        }
+      }
+    }
 
-    // 2. Criar prompt para o modelo identificar seções relevantes
+    logSection("Busca Semântica no Sumário - Estrutura Preparada");
+    logObj("total_items_in_index", flatStructure.length);
+    logObj("sample_items", flatStructure.slice(0, 5).map((item, idx) => 
+      `[${idx}] ${item.categoria} > ${item.topico || 'GERAL'}`
+    ));
+
+    // 2. Criar prompt focado APENAS em categorias/tópicos/subtópicos
     const systemPrompt = `Você é um especialista em medicina de emergência e terapia intensiva.
 
-Sua tarefa é analisar uma pergunta do usuário e identificar quais seções, categorias, tópicos e subtópicos de um sumário de livro são relevantes para responder essa pergunta.
+Sua tarefa é identificar quais categorias, tópicos e subtópicos de um índice médico são relevantes para responder a pergunta do usuário.
 
 IMPORTANTE:
-- Considere sinônimos médicos (ex: PCR = parada cardiorrespiratória = parada cardíaca)
+- Considere sinônimos médicos (ex: PCR = parada cardiorrespiratória = parada cardíaca = RCP)
 - Considere abreviações comuns (ex: IAM, AVC, TEP, RCP, etc)
-- Pense em contexto clínico amplo (ex: "dor no peito" pode relacionar-se com IAM, dissecção de aorta, embolia pulmonar)
-- Seja inclusivo: se houver dúvida se um tópico é relevante, inclua-o
+- Seja MUITO inclusivo: procure o termo em TODOS os níveis (categoria, tópico, subtópico)
+- Para perguntas BÁSICAS sobre um tema (ex: "como fazer RCP?", "frequência de RCP"): identifique TODAS as ocorrências do tema
 - SEMPRE considere que a pergunta é sobre adultos, a menos que especifique pediatria
-- **ESTRATÉGIA DE ESPECIFICIDADE:**
-  * Para perguntas BÁSICAS/GERAIS sobre um tema (ex: "o que é RCP?", "como fazer RCP?", "frequência de RCP"): identifique apenas CATEGORIA e deixe topico/subtopico como null
-  * Para perguntas ESPECÍFICAS sobre subtemas (ex: "indicações de ECPR", "dose de epinefrina em PCR"): aí sim especifique topico/subtopico
-  * Na dúvida, seja MENOS específico (melhor ter mais contexto que menos)
 
-Responda EXCLUSIVAMENTE em JSON seguindo este formato:
+Responda EXCLUSIVAMENTE em JSON com os IDs dos itens relevantes:
 {
-  "relevant_paths": [
-    {
-      "secao": "nome da seção",
-      "categoria": "nome da categoria",
-      "topico": "nome do tópico OU null se pergunta for geral sobre a categoria",
-      "subtopico": "nome do subtópico OU null se pergunta não for sobre isso especificamente",
-      "reasoning": "breve explicação de por que é relevante"
-    }
-  ]
+  "relevant_indices": [0, 5, 12]
 }
 
-Se nenhuma seção for claramente relevante, retorne: {"relevant_paths": []}`;
+Se nada for relevante: {"relevant_indices": []}`;
 
     const userPrompt = `Pergunta do usuário: """${question}"""
 
@@ -259,7 +267,7 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
       ],
       temperature: 0,
       top_p: 1,
-      max_tokens: 2000,
+      max_tokens: 500,
       seed: seedFromString(question + "|summary")
     };
 
@@ -271,12 +279,12 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
 
     // 3. Parsear resposta e extrair páginas
     const raw = resp.choices?.[0]?.message?.content?.trim() || "{}";
-    let relevantPaths = [];
+    let relevantIndices = [];
     
     try {
       const m = raw.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(m ? m[0] : raw);
-      relevantPaths = parsed.relevant_paths || [];
+      relevantIndices = parsed.relevant_indices || [];
     } catch (e) {
       logSection("Busca Semântica no Sumário - Erro ao parsear JSON");
       logObj("error", String(e));
@@ -284,59 +292,36 @@ Identifique quais partes do sumário são relevantes para responder a pergunta.`
       return { pages: [], paths: [] };
     }
 
-    logSection("Busca Semântica no Sumário - Caminhos Identificados");
-    logObj("relevant_paths", relevantPaths);
+    logSection("Busca Semântica no Sumário - Índices Identificados");
+    logObj("relevant_indices", relevantIndices);
 
-    // 4. Coletar todas as páginas dos caminhos identificados
+    // 4. Coletar páginas dos índices identificados
     const pagesSet = new Set();
-    const categoryPagesSet = new Set(); // ✅ NOVO: páginas da categoria inteira
+    const relevantPaths = [];
     
-    for (const path of relevantPaths) {
-      // Navegar pela estrutura do sumário para encontrar as páginas corretas
-      for (const secao of sumario) {
-        if (path.secao && normalizeStr(secao.secao) !== normalizeStr(path.secao)) continue;
+    for (const idx of relevantIndices) {
+      if (idx >= 0 && idx < flatStructure.length) {
+        const item = flatStructure[idx];
+        (item.paginas || []).forEach(p => pagesSet.add(p));
         
-        for (const cat of secao.categorias || []) {
-          if (path.categoria && normalizeStr(cat.categoria) !== normalizeStr(path.categoria)) continue;
-          
-          // ✅ NOVO: Sempre pegar páginas da categoria inteira
-          (cat.paginas || []).forEach(p => categoryPagesSet.add(p));
-          
-          // Se não especificou tópico, pega todas as páginas da categoria
-          if (!path.topico) {
-            (cat.paginas || []).forEach(p => pagesSet.add(p));
-            continue;
-          }
-          
-          for (const top of cat.topicos || []) {
-            if (path.topico && normalizeStr(top.topico) !== normalizeStr(path.topico)) continue;
-            
-            // ✅ NOVO: Se encontrou o tópico, pega páginas do tópico + categoria
-            (top.paginas || []).forEach(p => pagesSet.add(p));
-            
-            // Se não especificou subtópico, já tem as páginas do tópico
-            if (!path.subtopico) continue;
-            
-            for (const sub of top.subtopicos || []) {
-              if (path.subtopico && normalizeStr(sub.titulo) !== normalizeStr(path.subtopico)) continue;
-              (sub.paginas || []).forEach(p => pagesSet.add(p));
-            }
-          }
-        }
+        relevantPaths.push({
+          secao: item._secao,
+          categoria: item.categoria,
+          topico: item.topico,
+          subtopico: item.subtopico,
+          reasoning: `Índice ${idx}: ${item.categoria} > ${item.topico || 'GERAL'} > ${item.subtopico || 'GERAL'}`
+        });
       }
     }
 
-    // ✅ NOVO: Combinar páginas específicas + categoria inteira para cobertura completa
-    const allPages = new Set([...pagesSet, ...categoryPagesSet]);
-    const pages = Array.from(allPages).sort((a, b) => a - b);
+    const pages = Array.from(pagesSet).sort((a, b) => a - b);
     
     logSection("Busca Semântica no Sumário - Resultado Final");
-    logObj("pages_from_specific_paths", Array.from(pagesSet).sort((a,b)=>a-b));
-    logObj("pages_from_full_category", Array.from(categoryPagesSet).sort((a,b)=>a-b));
-    logObj("pages_combined", pages);
+    logObj("items_found", relevantPaths.length);
+    logObj("pages_found", pages);
     logObj("count", pages.length);
-    logObj("reasoning_summary", relevantPaths.map(p => ({
-      path: `${p.categoria || 'ALL'} > ${p.topico || 'ALL'} > ${p.subtopico || 'ALL'}`,
+    logObj("paths_summary", relevantPaths.map(p => ({
+      path: `${p.categoria} > ${p.topico || 'ALL'} > ${p.subtopico || 'ALL'}`,
       reason: p.reasoning
     })));
 
@@ -846,7 +831,7 @@ export default async function handler(req, res) {
     // ============================================
     logSection("Etapa 8: Montagem de contexto");
     
-    const contextText = nonEmptyPages.map(p =>
+    const contextText = limitedPages.map(p =>
       `--- Página ${p} ---\n${(pageMap.get(p) || "").trim()}\n`
     ).join("\n");
     
@@ -894,7 +879,7 @@ Formato obrigatório da resposta:
 Pergunta: """${question}"""
 
 Trechos disponíveis do livro (cada um contém número da página):
-${nonEmptyPages.map(p => `Página ${p}:\n${pageMap.get(p)}`).join("\n\n")}
+${limitedPages.map(p => `Página ${p}:\n${pageMap.get(p)}`).join("\n\n")}
 
 Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diretamente à pergunta.
 `.trim();
@@ -954,7 +939,7 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
     // ============================================
     return res.status(200).json({
       answer: finalAnswer,
-      used_pages: nonEmptyPages,
+      used_pages: limitedPages,
       original_pages: selectedPages,
       expanded_context: EXPAND_CONTEXT,
       search_scope: searchScope,
@@ -967,7 +952,9 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
         total_pages: pageEmbeddings.length,
         reduction_percentage: searchScope === "scoped" 
           ? `${((1 - candidatePages.length / pageEmbeddings.length) * 100).toFixed(1)}%`
-          : "0%"
+          : "0%",
+        context_limited: nonEmptyPages.length > limitedPages.length,
+        pages_removed: nonEmptyPages.length - limitedPages.length
       },
       question_used: question,
       logs: getLogs()
