@@ -22,9 +22,9 @@ const DICT_MAX_CANDIDATES = 20;
 const DICT_MAX_RECOMMEND = 5;
 
 // Configuração de expansão de contexto
-const EXPAND_CONTEXT = true;
-const ADJACENT_RANGE = 1;
-const TOP_PAGES_TO_SELECT = 5;  // ✅ Aumentado de 3 para 5 (página 915 está no 5º lugar)
+const EXPAND_CONTEXT = false;
+const ADJACENT_RANGE = 0; //Certifique se que EXPAND_CONTEXT da linha acima esteja como true se quiser expandir as paginas adjacentes
+const TOP_PAGES_TO_SELECT = 8;  // ✅ Aumentado de 3 para 5 (página 915 está no 5º lugar)
 
 // ==== Sistema de Logging ====
 const LOG_OPENAI = /^1|true|yes$/i.test(process.env.LOG_OPENAI || "");
