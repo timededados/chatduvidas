@@ -85,23 +85,44 @@ export default async function handler(req, res) {
 			|| (typeof req.query?.stream !== "undefined" && String(req.query.stream).toLowerCase() !== "false")
 			|| String(req.headers?.accept || "").includes("text/event-stream");
 
-		// Helper para SSE
+		// Helper para SSE (com flush)
 		const sse = wantsSSE ? (event, data) => {
 			try {
 				res.write(`event: ${event}\n`);
 				res.write(`data: ${JSON.stringify(data)}\n\n`);
+				try { res.flush?.(); } catch {}
 			} catch {}
 		} : null;
 
 		if (wantsSSE) {
 			res.writeHead(200, {
-				"Content-Type": "text/event-stream",
+				"Content-Type": "text/event-stream; charset=utf-8",
 				"Cache-Control": "no-cache, no-transform",
 				"Connection": "keep-alive",
-				"X-Accel-Buffering": "no"
+				"X-Accel-Buffering": "no",
+				"Access-Control-Allow-Origin": "*"
 			});
+			// Mantém o socket ativo e sem Nagle
+			try { res.socket?.setKeepAlive?.(true); } catch {}
+			try { res.socket?.setNoDelay?.(true); } catch {}
 			// força envio imediato de headers
 			try { res.flushHeaders?.(); } catch {}
+			// Padding para furar buffers intermediários
+			try {
+				res.write(":" + " ".repeat(2048) + "\n\n");
+				res.write("event: ready\ndata: {}\n\n");
+				try { res.flush?.(); } catch {}
+			} catch {}
+			// Heartbeat para manter a conexão viva
+			const heartbeat = setInterval(() => {
+				try {
+					res.write(": ping\n\n");
+					try { res.flush?.(); } catch {}
+				} catch {}
+			}, 15000);
+			res.on("close", () => {
+				try { clearInterval(heartbeat); } catch {}
+			});
 		}
 
 		// 0) Entrada (texto ou áudio)
@@ -444,17 +465,14 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 		logOpenAIResponse("chat.completions.create", chatResp, { duration_ms: chatMs });
 
 		const answer = chatResp.choices?.[0]?.message?.content?.trim() || "Não encontrei conteúdo no livro.";
-		// Livro primeiro no SSE, antes de buscar dicionário
+		// Livro primeiro no SSE, antes do dicionário
 		if (wantsSSE) {
 			sse("book", {
 				html: renderBookHtml(answer),
 				used_pages: limitedPages,
 				original_pages: selectedPages
 			});
-			try { res.flush?.(); } catch {}
-			// Sinaliza próxima etapa
 			sse("typing", { phase: "complementary" });
-			try { res.flush?.(); } catch {}
 		}
 
 		logSection("Resposta bruta gerada");
@@ -463,7 +481,7 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 		// 10) Dicionário (após enviar livro no SSE)
 		const dictRec = await recommendFromDictionary(req, question);
 
-		// 11) Renderização final
+		// 11) Renderização final (SSE em etapas)
 		const notFound = answer === "Não encontrei conteúdo no livro.";
 		const citedPages = extractCitedPages(answer);
 		const freeItems = (dictRec.raw || []).filter(x => !x.pago);
@@ -473,23 +491,15 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 			: renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
 
 		if (wantsSSE) {
-			// Complementar
 			sse("complementary", {
 				html: renderDictSection(freeItems, false),
 				count: freeItems.length
 			});
-			try { res.flush?.(); } catch {}
-
-			// Premium
 			sse("typing", { phase: "premium" });
-			try { res.flush?.(); } catch {}
 			sse("premium", {
 				html: renderDictSection(premiumItems, true),
 				count: premiumItems.length
 			});
-			try { res.flush?.(); } catch {}
-
-			// Done + meta
 			sse("done", {
 				search_scope: searchScope,
 				semantic_paths: relevantPaths.map(p => ({
