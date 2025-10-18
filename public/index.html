@@ -359,17 +359,20 @@
           const gain = ac.createGain();
           osc.type = "sine";
           osc.frequency.value = freq;
-          gain.gain.value = 0;
           osc.connect(gain);
           gain.connect(ac.destination);
-          const now = ac.currentTime;
-          gain.gain.setValueAtTime(0, now);
-          gain.gain.linearRampToValueAtTime(volume, now + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-          osc.start(now);
-          osc.stop(now + duration + 0.03);
           
-          console.log('[Audio] Beep tocado com sucesso! freq:', freq);
+          const now = ac.currentTime;
+          // CORRIGIDO: Inicia com volume baixo mas AUDÍVEL e faz fade in/out
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(volume, now + 0.02);
+          gain.gain.setValueAtTime(volume, now + duration - 0.02);
+          gain.gain.linearRampToValueAtTime(0.001, now + duration);
+          
+          osc.start(now);
+          osc.stop(now + duration);
+          
+          console.log('[Audio] Beep tocado com sucesso! freq:', freq, 'volume:', volume);
         } catch(e) {
           console.error('[Audio] Erro ao tocar beep:', e);
         }
