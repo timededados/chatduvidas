@@ -328,12 +328,13 @@
       let ctx;
       function ensureCtx() {
         if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (ctx.state === "suspended") ctx.resume();
-        return ctx;
+        return ctx; // REMOVIDO: não chamar resume aqui
       }
       async function beep(freq = 880, duration = 0.24, volume = 0.20) {
         try {
-          const ac = ensureCtx();
+          // NOVO: garante contexto em execução antes de tocar
+          const ac = await resume();
+          if (!ac) return;
           const osc = ac.createOscillator();
           const gain = ac.createGain();
           osc.type = "sine";
@@ -349,12 +350,19 @@
           osc.stop(now + duration + 0.03);
         } catch {}
       }
-      function resume() {
-        try { ensureCtx(); ctx?.resume?.(); } catch {}
+      async function resume() {
+        try {
+          const ac = ensureCtx();
+          if (ac.state === "suspended") {
+            await ac.resume(); // NOVO: aguarda desbloquear
+          }
+          return ac;
+        } catch {}
       }
       function initOnFirstInteraction() {
-        const kick = () => {
-          try { resume(); } catch {}
+        // torna assíncrono para aguardar resume
+        const kick = async () => {
+          try { await resume(); } catch {}
           document.removeEventListener("click", kick);
           document.removeEventListener("keydown", kick);
         };
@@ -527,8 +535,8 @@
       append("user", question);
       q.value = "";
       q.style.height = "60px";
-      // desbloqueia áudio antes de começar o streaming
-      AudioNotify.resume();
+      // desbloqueia áudio antes de começar o streaming (e aguarda)
+      await AudioNotify.resume(); // ALTERADO: aguarda o resume
 
       const ui = makeUIController();
       ui.showTyping("book");
@@ -653,11 +661,10 @@
 
     async function sendAudio(blob) {
       const voiceMsg = append("user", "🎙️ Mensagem de voz");
-      // UI streaming
       const ui = makeUIController();
       ui.showTyping("book");
-      // desbloqueia áudio antes do streaming
-      AudioNotify.resume();
+      // desbloqueia áudio antes do streaming (e aguarda)
+      await AudioNotify.resume(); // ALTERADO: aguarda o resume
       try {
         const dataUrl = await new Promise((resolve, reject) => {
           const r = new FileReader();
