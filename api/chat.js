@@ -97,8 +97,11 @@ export default async function handler(req, res) {
 			res.writeHead(200, {
 				"Content-Type": "text/event-stream",
 				"Cache-Control": "no-cache, no-transform",
-				"Connection": "keep-alive"
+				"Connection": "keep-alive",
+				"X-Accel-Buffering": "no"
 			});
+			// força envio imediato de headers
+			try { res.flushHeaders?.(); } catch {}
 		}
 
 		// 0) Entrada (texto ou áudio)
@@ -224,34 +227,40 @@ export default async function handler(req, res) {
 		}).sort((a, b) => (b.finalScore - a.finalScore) || (a.pagina - b.pagina));
 
 		if (!ranked.length) {
-			// Streaming: ainda envia etapas subsequentes
+			// Streaming: envia primeiro o livro, depois o dicionário
 			if (wantsSSE) {
 				const answer = "Não encontrei conteúdo no livro.";
-				// 10) Dicionário (ainda vale enviar sugestões)
-				const dictRec = await recommendFromDictionary(req, question);
-				const freeItems = (dictRec.raw || []).filter(x => !x.pago);
-				const premiumItems = (dictRec.raw || []).filter(x => x.pago);
-
-				// Livro
+				// Livro (primeiro chunk)
 				sse("book", {
 					html: renderBookHtml(answer),
 					used_pages: [],
 					original_pages: []
 				});
+				try { res.flush?.(); } catch {}
 
 				// Complementar
 				sse("typing", { phase: "complementary" });
+				try { res.flush?.(); } catch {}
+
+				// Busca dicionário depois do livro
+				const dictRec = await recommendFromDictionary(req, question);
+				const freeItems = (dictRec.raw || []).filter(x => !x.pago);
+				const premiumItems = (dictRec.raw || []).filter(x => x.pago);
+
 				sse("complementary", {
 					html: renderDictSection(freeItems, false),
 					count: freeItems.length
 				});
+				try { res.flush?.(); } catch {}
 
 				// Premium
 				sse("typing", { phase: "premium" });
+				try { res.flush?.(); } catch {}
 				sse("premium", {
 					html: renderDictSection(premiumItems, true),
 					count: premiumItems.length
 				});
+				try { res.flush?.(); } catch {}
 
 				// Done
 				sse("done", {
@@ -306,25 +315,39 @@ export default async function handler(req, res) {
 		if (!limitedPages.length) {
 			if (wantsSSE) {
 				const answer = "Não encontrei conteúdo no livro.";
-				const dictRec = await recommendFromDictionary(req, question);
-				const freeItems = (dictRec.raw || []).filter(x => !x.pago);
-				const premiumItems = (dictRec.raw || []).filter(x => x.pago);
 
+				// Livro (primeiro chunk)
 				sse("book", {
 					html: renderBookHtml(answer),
 					used_pages: [],
 					original_pages: selectedPages || []
 				});
+				try { res.flush?.(); } catch {}
+
+				// Complementar
 				sse("typing", { phase: "complementary" });
+				try { res.flush?.(); } catch {}
+
+				// Busca dicionário depois do livro
+				const dictRec = await recommendFromDictionary(req, question);
+				const freeItems = (dictRec.raw || []).filter(x => !x.pago);
+				const premiumItems = (dictRec.raw || []).filter(x => x.pago);
+
 				sse("complementary", {
 					html: renderDictSection(freeItems, false),
 					count: freeItems.length
 				});
+				try { res.flush?.(); } catch {}
+
+				// Premium
 				sse("typing", { phase: "premium" });
+				try { res.flush?.(); } catch {}
 				sse("premium", {
 					html: renderDictSection(premiumItems, true),
 					count: premiumItems.length
 				});
+				try { res.flush?.(); } catch {}
+
 				sse("done", {
 					search_scope: searchScope,
 					semantic_paths: relevantPaths,
@@ -421,15 +444,26 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 		logOpenAIResponse("chat.completions.create", chatResp, { duration_ms: chatMs });
 
 		const answer = chatResp.choices?.[0]?.message?.content?.trim() || "Não encontrei conteúdo no livro.";
+		// Livro primeiro no SSE, antes de buscar dicionário
+		if (wantsSSE) {
+			sse("book", {
+				html: renderBookHtml(answer),
+				used_pages: limitedPages,
+				original_pages: selectedPages
+			});
+			try { res.flush?.(); } catch {}
+			// Sinaliza próxima etapa
+			sse("typing", { phase: "complementary" });
+			try { res.flush?.(); } catch {}
+		}
+
 		logSection("Resposta bruta gerada");
 		logObj("answer", answer);
 
-		// 10) Dicionário
-		if (wantsSSE) sse("typing", { phase: "complementary" });
+		// 10) Dicionário (após enviar livro no SSE)
 		const dictRec = await recommendFromDictionary(req, question);
 
-		// 11) Renderização final (streaming primeiro, depois JSON padrão)
-		// Calcular artefatos finais (usados no SSE e no JSON)
+		// 11) Renderização final
 		const notFound = answer === "Não encontrei conteúdo no livro.";
 		const citedPages = extractCitedPages(answer);
 		const freeItems = (dictRec.raw || []).filter(x => !x.pago);
@@ -439,26 +473,21 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 			: renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
 
 		if (wantsSSE) {
-			// Livro (primeiro chunk)
-			sse("book", {
-				html: renderBookHtml(answer),
-				used_pages: limitedPages,
-				original_pages: selectedPages
-			});
-
 			// Complementar
-			sse("typing", { phase: "complementary" });
 			sse("complementary", {
 				html: renderDictSection(freeItems, false),
 				count: freeItems.length
 			});
+			try { res.flush?.(); } catch {}
 
 			// Premium
 			sse("typing", { phase: "premium" });
+			try { res.flush?.(); } catch {}
 			sse("premium", {
 				html: renderDictSection(premiumItems, true),
 				count: premiumItems.length
 			});
+			try { res.flush?.(); } catch {}
 
 			// Done + meta
 			sse("done", {
@@ -482,7 +511,7 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 			return res.end();
 		}
 
-		// JSON (comportamento atual)
+		// JSON (comportamento atual, inalterado)
 		return res.status(200).json({
 			answer: finalAnswer,
 			used_pages: limitedPages,
