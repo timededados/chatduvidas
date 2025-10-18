@@ -344,7 +344,7 @@
         return ctx;
       }
       
-      async function beep() {
+      async function beep(freq = 880, duration = 0.24, volume = 0.20) {
         try {
           const ac = ensureCtx();
           console.log('[Audio] Tentando beep, estado do contexto:', ac.state, 'isReady:', isReady);
@@ -355,45 +355,24 @@
             console.log('[Audio] Contexto resumed antes do beep');
           }
           
-          // Oscilador principal (880 Hz)
-          const osc1 = ac.createOscillator();
-          const gain1 = ac.createGain();
-          osc1.type = "sine";
-          osc1.frequency.value = 880;
-          osc1.connect(gain1);
-          gain1.connect(ac.destination);
-          
-          // Oscilador harmônico suave (1320 Hz)
-          const osc2 = ac.createOscillator();
-          const gain2 = ac.createGain();
-          osc2.type = "sine";
-          osc2.frequency.value = 1320;
-          osc2.connect(gain2);
-          gain2.connect(ac.destination);
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          osc.connect(gain);
+          gain.connect(ac.destination);
           
           const now = ac.currentTime;
-          const duration = 0.25;
-          const volume1 = 0.15; // volume principal
-          const volume2 = 0.08; // harmônico mais suave
+          // Envelope suave: fade in mais longo, fade out mais suave
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(volume, now + 0.05); // fade in de 50ms
+          gain.gain.setValueAtTime(volume, now + duration - 0.08); // mantém volume
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration); // fade out suave
           
-          // Envelope suave para oscilador principal
-          gain1.gain.setValueAtTime(0.001, now);
-          gain1.gain.linearRampToValueAtTime(volume1, now + 0.05);
-          gain1.gain.setValueAtTime(volume1, now + duration - 0.08);
-          gain1.gain.exponentialRampToValueAtTime(0.001, now + duration);
+          osc.start(now);
+          osc.stop(now + duration);
           
-          // Envelope suave para harmônico
-          gain2.gain.setValueAtTime(0.001, now);
-          gain2.gain.linearRampToValueAtTime(volume2, now + 0.05);
-          gain2.gain.setValueAtTime(volume2, now + duration - 0.08);
-          gain2.gain.exponentialRampToValueAtTime(0.001, now + duration);
-          
-          osc1.start(now);
-          osc1.stop(now + duration);
-          osc2.start(now);
-          osc2.stop(now + duration);
-          
-          console.log('[Audio] Beep tocado com sucesso!');
+          console.log('[Audio] Beep tocado com sucesso! freq:', freq, 'volume:', volume);
         } catch(e) {
           console.error('[Audio] Erro ao tocar beep:', e);
         }
@@ -423,7 +402,7 @@
           // Toca som silencioso AUDÍVEL para desbloqueio garantido
           const osc = ac.createOscillator();
           const gain = ac.createGain();
-          gain.gain.value = 0.001;
+          gain.gain.value = 0.001; // Volume muito baixo mas não zero
           osc.connect(gain);
           gain.connect(ac.destination);
           const now = ac.currentTime;
@@ -486,7 +465,7 @@
             append("bot", "⚠️ Erro: " + data.error);
           } else if (data.answer) {
             append("bot", data.answer);
-            AudioNotify.beep(); // beep único no fallback
+            AudioNotify.beep(820, 0.22, 0.14); // beep único no fallback
           } else {
             append("bot", "⚠️ Resposta inválida.");
           }
@@ -497,8 +476,16 @@
         const decoder = new TextDecoder();
         let buffer = "";
 
-        // Flag para garantir que o beep toque apenas uma vez por resposta completa
-        let beepPlayed = false;
+        // Flag para garantir que o 1º beep toque exatamente uma vez
+        let bookBeepPlayed = false;
+        const tryBookBeep = () => {
+          if (bookBeepPlayed) return;
+          try {
+            AudioNotify.resume();
+            AudioNotify.beep(920, 0.26, 0.20);
+            bookBeepPlayed = true;
+          } catch {}
+        };
 
         const handleEvent = (evt, data) => {
           if (evt === "ready") {
@@ -513,11 +500,11 @@
           if (evt === "book") {
             console.log('[SSE] Evento book recebido');
             ui.replaceTyping(data?.html || "");
-            // Toca beep apenas uma vez quando recebe a primeira resposta
-            if (!beepPlayed) {
-              console.log('[SSE] Tocando beep...');
-              AudioNotify.beep();
-              beepPlayed = true;
+            // Toca o beep imediatamente - tom mais grave e suave
+            if (!bookBeepPlayed) {
+              console.log('[SSE] Tocando beep do book...');
+              AudioNotify.beep(680, 0.30, 0.15); // Mais grave, mais longo, mais suave
+              bookBeepPlayed = true;
             }
             ui.showTyping("complementary");
             return;
@@ -525,17 +512,19 @@
           if (evt === "complementary") {
             console.log('[SSE] Evento complementary recebido');
             if (data?.html) ui.replaceTyping(data.html);
+            AudioNotify.beep(620, 0.28, 0.13); // Tom médio-grave
             ui.showTyping("premium");
             return;
           }
           if (evt === "premium") {
             console.log('[SSE] Evento premium recebido');
             if (data?.html) ui.replaceTyping(data.html);
+            AudioNotify.beep(560, 0.26, 0.12); // Tom mais grave ainda
             return;
           }
           if (evt === "error") {
             ui.replaceTyping("⚠️ Erro: " + (data?.message || "Falha no streaming"));
-            AudioNotify.beep();
+            AudioNotify.beep(500, 0.27, 0.22);
             return;
           }
           if (evt === "done") {
@@ -571,7 +560,7 @@
       } catch (e) {
         ui.finish();
         append("bot", "⚠️ Erro de conexão: " + e.message);
-        AudioNotify.beep();
+        AudioNotify.beep(500, 0.2, 0.03);
       }
     }
 
