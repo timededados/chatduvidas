@@ -363,11 +363,11 @@
           gain.connect(ac.destination);
           
           const now = ac.currentTime;
-          // CORRIGIDO: Inicia com volume baixo mas AUDÍVEL e faz fade in/out
+          // Envelope suave: fade in mais longo, fade out mais suave
           gain.gain.setValueAtTime(0.001, now);
-          gain.gain.linearRampToValueAtTime(volume, now + 0.02);
-          gain.gain.setValueAtTime(volume, now + duration - 0.02);
-          gain.gain.linearRampToValueAtTime(0.001, now + duration);
+          gain.gain.linearRampToValueAtTime(volume, now + 0.05); // fade in de 50ms
+          gain.gain.setValueAtTime(volume, now + duration - 0.08); // mantém volume
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration); // fade out suave
           
           osc.start(now);
           osc.stop(now + duration);
@@ -500,10 +500,10 @@
           if (evt === "book") {
             console.log('[SSE] Evento book recebido');
             ui.replaceTyping(data?.html || "");
-            // Toca o beep imediatamente
+            // Toca o beep imediatamente - tom mais grave e suave
             if (!bookBeepPlayed) {
               console.log('[SSE] Tocando beep do book...');
-              AudioNotify.beep(920, 0.26, 0.20);
+              AudioNotify.beep(680, 0.30, 0.15); // Mais grave, mais longo, mais suave
               bookBeepPlayed = true;
             }
             ui.showTyping("complementary");
@@ -512,14 +512,14 @@
           if (evt === "complementary") {
             console.log('[SSE] Evento complementary recebido');
             if (data?.html) ui.replaceTyping(data.html);
-            AudioNotify.beep(780, 0.24, 0.18);
+            AudioNotify.beep(620, 0.28, 0.13); // Tom médio-grave
             ui.showTyping("premium");
             return;
           }
           if (evt === "premium") {
             console.log('[SSE] Evento premium recebido');
             if (data?.html) ui.replaceTyping(data.html);
-            AudioNotify.beep(680, 0.24, 0.18);
+            AudioNotify.beep(560, 0.26, 0.12); // Tom mais grave ainda
             return;
           }
           if (evt === "error") {
