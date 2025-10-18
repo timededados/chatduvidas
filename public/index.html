@@ -344,45 +344,35 @@
         return ctx;
       }
       
-      // Beep único e agradável para todas as respostas
-      async function beep(_freq = 880, _duration = 0.24, _volume = 0.20) {
+      async function beep(freq = 880, duration = 0.24, volume = 0.20) {
         try {
           const ac = ensureCtx();
-          if (ac.state === "suspended") await ac.resume();
-
+          console.log('[Audio] Tentando beep, estado do contexto:', ac.state, 'isReady:', isReady);
+          
+          // Se ainda está suspended, força resume e aguarda
+          if (ac.state === "suspended") {
+            await ac.resume();
+            console.log('[Audio] Contexto resumed antes do beep');
+          }
+          
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          osc.connect(gain);
+          gain.connect(ac.destination);
+          
           const now = ac.currentTime;
-          const duration = 0.28; // ~280ms
-          const volume = 0.16;   // volume moderado
-
-          // Master gain com envelope suave
-          const master = ac.createGain();
-          master.connect(ac.destination);
-          master.gain.setValueAtTime(0.0001, now);
-          master.gain.linearRampToValueAtTime(volume, now + 0.015); // ataque suave
-          master.gain.exponentialRampToValueAtTime(0.0001, now + duration); // decaimento suave
-
-          // Fundamental (A5 ~ 880 Hz)
-          const o1 = ac.createOscillator();
-          o1.type = "sine";
-          o1.frequency.setValueAtTime(880, now);
-
-          // Overtone agradável (~E6 ~ 1320 Hz) com leve detune
-          const o2 = ac.createOscillator();
-          o2.type = "sine";
-          o2.frequency.setValueAtTime(1320, now);
-          o2.detune.setValueAtTime(4, now);
-
-          // Mix balanceado (overtone mais baixo)
-          const g1 = ac.createGain(); g1.gain.value = 1.0;
-          const g2 = ac.createGain(); g2.gain.value = 0.35;
-
-          o1.connect(g1); g1.connect(master);
-          o2.connect(g2); g2.connect(master);
-
-          o1.start(now);
-          o2.start(now);
-          o1.stop(now + duration);
-          o2.stop(now + duration);
+          // Envelope suave: fade in mais longo, fade out mais suave
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(volume, now + 0.05); // fade in de 50ms
+          gain.gain.setValueAtTime(volume, now + duration - 0.08); // mantém volume
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration); // fade out suave
+          
+          osc.start(now);
+          osc.stop(now + duration);
+          
+          console.log('[Audio] Beep tocado com sucesso! freq:', freq, 'volume:', volume);
         } catch(e) {
           console.error('[Audio] Erro ao tocar beep:', e);
         }
