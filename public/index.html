@@ -411,6 +411,17 @@
         const decoder = new TextDecoder();
         let buffer = "";
 
+        // Flag para garantir que o 1º beep toque exatamente uma vez
+        let bookBeepPlayed = false;
+        const tryBookBeep = () => {
+          if (bookBeepPlayed) return;
+          try {
+            AudioNotify.resume();
+            AudioNotify.beep(920, 0.26, 0.20);
+            bookBeepPlayed = true;
+          } catch {}
+        };
+
         const handleEvent = (evt, data) => {
           if (evt === "ready") {
             AudioNotify.resume();
@@ -422,13 +433,11 @@
           }
           if (evt === "book") {
             ui.replaceTyping(data?.html || "");
-            // Garantir áudio desbloqueado e aguardar próximo paint + atraso maior
+            // Tenta tocar o beep da 1ª resposta com redundância (350ms e 900ms)
             AudioNotify.resume();
             requestAnimationFrame(() => {
-              setTimeout(() => {
-                AudioNotify.resume();
-                AudioNotify.beep(920, 0.26, 0.20);
-              }, 220); // aumento do atraso para garantir que o 1º beep soe
+              setTimeout(tryBookBeep, 350);
+              setTimeout(tryBookBeep, 900);
             });
             ui.showTyping("complementary");
             return;
