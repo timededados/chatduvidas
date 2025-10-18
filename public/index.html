@@ -328,18 +328,130 @@
       msg.className = `msg ${role}`;
       const bubble = document.createElement("div");
       bubble.className = "bubble";
-      
-      // Se for HTML (contém tags), insere direto; senão converte quebras de linha
       if (text.includes("<") && text.includes(">")) {
         bubble.innerHTML = text;
       } else {
         bubble.innerHTML = text.replace(/\n/g, "<br>");
       }
-      
       msg.appendChild(bubble);
       chat.appendChild(msg);
       chat.scrollTop = chat.scrollHeight;
-      return msg; // <- retorna o nó criado
+      return msg;
+    }
+
+    // === SSE client (POST streaming) ===
+    async function streamChat(payload, ui) {
+      try {
+        const resp = await fetch("/api/chat?stream=1", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream"
+          },
+          body: JSON.stringify({ ...payload, stream: true })
+        });
+
+        const ctype = resp.headers.get("content-type") || "";
+        if (!resp.ok || !ctype.includes("text/event-stream") || !resp.body) {
+          // Fallback para JSON
+          const data = await resp.json().catch(() => ({}));
+          ui.finish();
+          if (data.error) append("bot", "⚠️ Erro: " + data.error);
+          else if (data.answer) append("bot", data.answer);
+          else append("bot", "⚠️ Resposta inválida.");
+          return;
+        }
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        const handleEvent = (evt, data) => {
+          if (evt === "typing") {
+            ui.showTyping(data?.phase || "");
+            return;
+          }
+          if (evt === "book") {
+            ui.replaceTyping(data?.html || "");
+            // prepara próximo "digitando..."
+            ui.showTyping("complementary");
+            return;
+          }
+          if (evt === "complementary") {
+            if (data?.html) ui.replaceTyping(data.html);
+            // prepara próximo "digitando..."
+            ui.showTyping("premium");
+            return;
+          }
+          if (evt === "premium") {
+            if (data?.html) ui.replaceTyping(data.html);
+            return;
+          }
+          if (evt === "error") {
+            ui.replaceTyping("⚠️ Erro: " + (data?.message || "Falha no streaming"));
+            return;
+          }
+          if (evt === "done") {
+            ui.finish();
+            return;
+          }
+          // eventos "ready"/heartbeats são ignorados
+        };
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          // Divide por eventos SSE separados por \n\n
+          let idx;
+          while ((idx = buffer.indexOf("\n\n")) !== -1) {
+            const rawEvent = buffer.slice(0, idx).trim();
+            buffer = buffer.slice(idx + 2);
+
+            let eventName = "message";
+            let dataStr = "";
+            for (const line of rawEvent.split("\n")) {
+              if (line.startsWith("event:")) eventName = line.slice(6).trim();
+              else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+            }
+            let dataObj = undefined;
+            try { dataObj = dataStr ? JSON.parse(dataStr) : undefined; } catch {}
+            handleEvent(eventName, dataObj);
+          }
+        }
+        ui.finish();
+      } catch (e) {
+        ui.finish();
+        append("bot", "⚠️ Erro de conexão: " + e.message);
+      }
+    }
+
+    function makeUIController() {
+      let typingMsg = null;
+      return {
+        showTyping(phase) {
+          // se já existe, mantém; se não, cria
+          if (!typingMsg) typingMsg = append("bot", '<span class="typing">•••</span>');
+        },
+        replaceTyping(html) {
+          if (typingMsg) {
+            const bubble = typingMsg.querySelector(".bubble");
+            if (bubble) bubble.innerHTML = html && html.trim() ? html : '<span class="typing">•••</span>';
+            // Depois de substituir, "encerra" o typing atual
+            typingMsg = null;
+          } else {
+            // se por algum motivo não existe, apenas adiciona como nova mensagem
+            append("bot", html && html.trim() ? html : '<span class="typing">•••</span>');
+          }
+        },
+        finish() {
+          if (typingMsg) {
+            try { typingMsg.remove(); } catch {}
+            typingMsg = null;
+          }
+        }
+      };
     }
 
     async function sendQuestion() {
@@ -347,26 +459,12 @@
       if (!question) return;
       append("user", question);
       q.value = "";
-      q.style.height = "60px"; // Reset altura
-      append("bot", '<span class="typing">⏳ Buscando informação...</span>');
+      q.style.height = "60px";
 
-      try {
-        const resp = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question })
-        });
-        const data = await resp.json();
-        chat.lastChild.remove(); // remove "Buscando..."
-        if (data.error) {
-          append("bot", "⚠️ Erro: " + data.error);
-        } else {
-          append("bot", data.answer);
-        }
-      } catch (e) {
-        chat.lastChild.remove();
-        append("bot", "⚠️ Erro de conexão: " + e.message);
-      }
+      // UI de etapas com streaming
+      const ui = makeUIController();
+      ui.showTyping("book");
+      await streamChat({ question }, ui);
     }
 
     // Clique no botão
@@ -379,13 +477,13 @@
         sendQuestion();
       }
     });
-    
+
     // Auto-resize do textarea
     q.addEventListener("input", () => {
       q.style.height = "60px";
       q.style.height = Math.min(q.scrollHeight, 120) + "px";
     });
-    
+
     // ===== Gravação de áudio (voz) =====
     let mediaRecorder = null;
     let recChunks = [];
@@ -486,36 +584,25 @@
     }
 
     async function sendAudio(blob) {
-      const voiceMsg = append("user", "🎙️ Mensagem de voz"); // <- guarda referência
-      append("bot", '<span class="typing">⏳ Buscando informação...</span>');
+      const voiceMsg = append("user", "🎙️ Mensagem de voz");
+      // UI streaming
+      const ui = makeUIController();
+      ui.showTyping("book");
       try {
         const dataUrl = await new Promise((resolve, reject) => {
           const r = new FileReader();
-          r.onload = () => resolve(r.result); // data:*/*;base64,...
+          r.onload = () => resolve(r.result);
           r.onerror = reject;
           r.readAsDataURL(blob);
         });
-        const resp = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audio: dataUrl, audio_mime: blob.type || "audio/webm" })
-        });
-        const data = await resp.json();
-        chat.lastChild.remove(); // remove "Buscando..."
 
-        // Atualiza a bolha do usuário com o texto transcrito (se disponível)
-        if (data.question_used && voiceMsg) {
-          const bubble = voiceMsg.querySelector(".bubble");
-          if (bubble) bubble.innerHTML = String(data.question_used).replace(/\n/g, "<br>");
-        }
+        // usa o mesmo cliente streaming (POST + SSE)
+        await streamChat({ audio: dataUrl, audio_mime: blob.type || "audio/webm" }, ui);
 
-        if (data.error) {
-          append("bot", "⚠️ Erro: " + data.error);
-        } else {
-          append("bot", data.answer);
-        }
+        // nota: se quiser mostrar a transcrição, ajuste o backend para enviar evento com question_used
+        // e aqui atualize a bolha voiceMsg com o texto transcrito
       } catch (e) {
-        chat.lastChild.remove();
+        ui.finish();
         append("bot", "⚠️ Erro de conexão: " + e.message);
       }
     }
