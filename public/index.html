@@ -350,7 +350,24 @@
         } catch {}
       }
       function resume() {
-        try { ensureCtx(); ctx?.resume?.(); } catch {}
+        try { 
+          const ac = ensureCtx();
+          if (ac.state === "suspended") ac.resume();
+        } catch {}
+      }
+      function forceInit() {
+        // Força criação e desbloqueio do contexto de forma síncrona
+        try {
+          const ac = ensureCtx();
+          // Toca um som silencioso para garantir desbloqueio
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          gain.gain.value = 0;
+          osc.connect(gain);
+          gain.connect(ac.destination);
+          osc.start(ac.currentTime);
+          osc.stop(ac.currentTime + 0.001);
+        } catch {}
       }
       function initOnFirstInteraction() {
         const kick = () => {
@@ -361,7 +378,7 @@
         document.addEventListener("click", kick);
         document.addEventListener("keydown", kick);
       }
-      return { beep, initOnFirstInteraction, resume };
+      return { beep, initOnFirstInteraction, resume, forceInit };
     })();
 
     AudioNotify.initOnFirstInteraction();
@@ -425,8 +442,6 @@
         const handleEvent = (evt, data) => {
           if (evt === "ready") {
             AudioNotify.resume();
-            // Pequeno delay para garantir que o contexto está pronto
-            setTimeout(() => AudioNotify.resume(), 50);
             return;
           }
           if (evt === "typing") {
@@ -435,15 +450,11 @@
           }
           if (evt === "book") {
             ui.replaceTyping(data?.html || "");
-            // Garante que o áudio está desbloqueado e aguarda um pouco mais
-            AudioNotify.resume();
-            requestAnimationFrame(() => {
-              // Múltiplas tentativas com delays crescentes
-              setTimeout(tryBookBeep, 100);
-              setTimeout(tryBookBeep, 250);
-              setTimeout(tryBookBeep, 500);
-              setTimeout(tryBookBeep, 800);
-            });
+            // Toca o beep imediatamente
+            if (!bookBeepPlayed) {
+              AudioNotify.beep(920, 0.26, 0.20);
+              bookBeepPlayed = true;
+            }
             ui.showTyping("complementary");
             return;
           }
@@ -530,11 +541,13 @@
     async function sendQuestion() {
       const question = q.value.trim();
       if (!question) return;
+      
+      // CRÍTICO: Desbloqueia áudio SINCRONAMENTE durante a interação do usuário
+      AudioNotify.forceInit();
+      
       append("user", question);
       q.value = "";
       q.style.height = "60px";
-      // desbloqueia áudio antes de começar o streaming
-      AudioNotify.resume();
 
       const ui = makeUIController();
       ui.showTyping("book");
@@ -542,12 +555,18 @@
     }
 
     // Clique no botão
-    btn.addEventListener("click", sendQuestion);
+    btn.addEventListener("click", (e) => {
+      // Desbloqueia áudio antes de qualquer coisa
+      AudioNotify.forceInit();
+      sendQuestion();
+    });
 
     // Enter para enviar, Shift+Enter para quebra de linha
     q.addEventListener("keydown", e => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+        // Desbloqueia áudio antes de qualquer coisa
+        AudioNotify.forceInit();
         sendQuestion();
       }
     });
@@ -659,11 +678,13 @@
 
     async function sendAudio(blob) {
       const voiceMsg = append("user", "🎙️ Mensagem de voz");
+      
+      // Desbloqueia áudio sincronamente
+      AudioNotify.forceInit();
+      
       // UI streaming
       const ui = makeUIController();
       ui.showTyping("book");
-      // desbloqueia áudio antes do streaming
-      AudioNotify.resume();
       try {
         const dataUrl = await new Promise((resolve, reject) => {
           const r = new FileReader();
@@ -683,6 +704,10 @@
         alert("Gravação de áudio não suportada neste navegador.");
         return;
       }
+      
+      // Desbloqueia áudio no clique do microfone
+      AudioNotify.forceInit();
+      
       if (!mediaRecorder || mediaRecorder.state === "inactive") {
         startRecording();
       } else {
