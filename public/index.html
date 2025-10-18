@@ -331,7 +331,7 @@
         if (ctx.state === "suspended") ctx.resume();
         return ctx;
       }
-      async function beep(freq = 880, duration = 0.18, volume = 0.025) {
+      async function beep(freq = 880, duration = 0.22, volume = 0.12) {
         try {
           const ac = ensureCtx();
           const osc = ac.createOscillator();
@@ -342,24 +342,26 @@
           osc.connect(gain);
           gain.connect(ac.destination);
           const now = ac.currentTime;
-          // envelope rápido para não incomodar
           gain.gain.setValueAtTime(0, now);
           gain.gain.linearRampToValueAtTime(volume, now + 0.01);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
           osc.start(now);
-          osc.stop(now + duration + 0.02);
+          osc.stop(now + duration + 0.03);
         } catch {}
       }
-      function initOnFirstInteraction() {
-        const resume = () => {
-          try { ensureCtx(); } catch {}
-          document.removeEventListener("click", resume);
-          document.removeEventListener("keydown", resume);
-        };
-        document.addEventListener("click", resume);
-        document.addEventListener("keydown", resume);
+      function resume() {
+        try { ensureCtx(); ctx?.resume?.(); } catch {}
       }
-      return { beep, initOnFirstInteraction };
+      function initOnFirstInteraction() {
+        const kick = () => {
+          try { resume(); } catch {}
+          document.removeEventListener("click", kick);
+          document.removeEventListener("keydown", kick);
+        };
+        document.addEventListener("click", kick);
+        document.addEventListener("keydown", kick);
+      }
+      return { beep, initOnFirstInteraction, resume };
     })();
 
     AudioNotify.initOnFirstInteraction();
@@ -385,10 +387,7 @@
       try {
         const resp = await fetch("/api/chat?stream=1", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "text/event-stream"
-          },
+          headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
           body: JSON.stringify({ ...payload, stream: true })
         });
 
@@ -401,7 +400,7 @@
             append("bot", "⚠️ Erro: " + data.error);
           } else if (data.answer) {
             append("bot", data.answer);
-            AudioNotify.beep(820); // beep único no fallback
+            AudioNotify.beep(820, 0.22, 0.14); // beep único no fallback
           } else {
             append("bot", "⚠️ Resposta inválida.");
           }
@@ -413,37 +412,42 @@
         let buffer = "";
 
         const handleEvent = (evt, data) => {
+          if (evt === "ready") {
+            // garante que o áudio está desbloqueado antes do primeiro beep
+            AudioNotify.resume();
+            return;
+          }
           if (evt === "typing") {
             ui.showTyping(data?.phase || "");
             return;
           }
           if (evt === "book") {
             ui.replaceTyping(data?.html || "");
-            AudioNotify.beep(900); // primeiro beep
+            AudioNotify.beep(900, 0.22, 0.14); // beep mais alto para a 1ª resposta
             ui.showTyping("complementary");
             return;
           }
           if (evt === "complementary") {
             if (data?.html) ui.replaceTyping(data.html);
-            AudioNotify.beep(760); // segundo beep
+            AudioNotify.beep(760, 0.22, 0.12);
             ui.showTyping("premium");
             return;
           }
           if (evt === "premium") {
             if (data?.html) ui.replaceTyping(data.html);
-            AudioNotify.beep(660); // terceiro beep
+            AudioNotify.beep(660, 0.22, 0.12);
             return;
           }
           if (evt === "error") {
             ui.replaceTyping("⚠️ Erro: " + (data?.message || "Falha no streaming"));
-            AudioNotify.beep(500, 0.2, 0.03); // beep diferente para erro
+            AudioNotify.beep(500, 0.25, 0.16);
             return;
           }
           if (evt === "done") {
             ui.finish();
             return;
           }
-          // eventos "ready"/heartbeats são ignorados
+          // heartbeats ignorados
         };
 
         while (true) {
@@ -509,8 +513,9 @@
       append("user", question);
       q.value = "";
       q.style.height = "60px";
+      // desbloqueia áudio antes de começar o streaming
+      AudioNotify.resume();
 
-      // UI de etapas com streaming
       const ui = makeUIController();
       ui.showTyping("book");
       await streamChat({ question }, ui);
@@ -637,6 +642,8 @@
       // UI streaming
       const ui = makeUIController();
       ui.showTyping("book");
+      // desbloqueia áudio antes do streaming
+      AudioNotify.resume();
       try {
         const dataUrl = await new Promise((resolve, reject) => {
           const r = new FileReader();
@@ -644,12 +651,7 @@
           r.onerror = reject;
           r.readAsDataURL(blob);
         });
-
-        // usa o mesmo cliente streaming (POST + SSE)
         await streamChat({ audio: dataUrl, audio_mime: blob.type || "audio/webm" }, ui);
-
-        // nota: se quiser mostrar a transcrição, ajuste o backend para enviar evento com question_used
-        // e aqui atualize a bolha voiceMsg com o texto transcrito
       } catch (e) {
         ui.finish();
         append("bot", "⚠️ Erro de conexão: " + e.message);
