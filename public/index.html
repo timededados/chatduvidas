@@ -411,17 +411,6 @@
         const decoder = new TextDecoder();
         let buffer = "";
 
-        // Flag para garantir que o 1º beep toque exatamente uma vez
-        let bookBeepPlayed = false;
-        const tryBookBeep = () => {
-          if (bookBeepPlayed) return;
-          try {
-            AudioNotify.resume();
-            AudioNotify.beep(920, 0.26, 0.20);
-            bookBeepPlayed = true;
-          } catch {}
-        };
-
         const handleEvent = (evt, data) => {
           if (evt === "ready") {
             AudioNotify.resume();
@@ -433,12 +422,6 @@
           }
           if (evt === "book") {
             ui.replaceTyping(data?.html || "");
-            // Tenta tocar o beep da 1ª resposta com redundância (350ms e 900ms)
-            AudioNotify.resume();
-            requestAnimationFrame(() => {
-              setTimeout(tryBookBeep, 350);
-              setTimeout(tryBookBeep, 900);
-            });
             ui.showTyping("complementary");
             return;
           }
@@ -497,20 +480,36 @@
 
     function makeUIController() {
       let typingMsg = null;
+      let firstBeepDone = false; // NOVO: guarda para garantir que o primeiro beep toque uma vez por resposta
+
       return {
         showTyping(phase) {
-          // se já existe, mantém; se não, cria
           if (!typingMsg) typingMsg = append("bot", '<span class="typing">•••</span>');
         },
         replaceTyping(html) {
+          const content = html && html.trim() ? html : '<span class="typing">•••</span>';
+
           if (typingMsg) {
             const bubble = typingMsg.querySelector(".bubble");
-            if (bubble) bubble.innerHTML = html && html.trim() ? html : '<span class="typing">•••</span>';
-            // Depois de substituir, "encerra" o typing atual
+            if (bubble) bubble.innerHTML = content;
+            // Dispara o primeiro beep uma vez que o conteúdo se torna visível
+            if (!firstBeepDone && html && html.trim()) {
+              firstBeepDone = true;
+              requestAnimationFrame(() => {
+                AudioNotify.resume();
+                setTimeout(() => { try { AudioNotify.beep(920, 0.26, 0.20); } catch {} }, 100);
+              });
+            }
             typingMsg = null;
           } else {
-            // se por algum motivo não existe, apenas adiciona como nova mensagem
-            append("bot", html && html.trim() ? html : '<span class="typing">•••</span>');
+            append("bot", content);
+            if (!firstBeepDone && html && html.trim()) {
+              firstBeepDone = true;
+              requestAnimationFrame(() => {
+                AudioNotify.resume();
+                setTimeout(() => { try { AudioNotify.beep(920, 0.26, 0.20); } catch {} }, 100);
+              });
+            }
           }
         },
         finish() {
