@@ -24,6 +24,13 @@ const EXPAND_CONTEXT = false;
 const ADJACENT_RANGE = 0;
 const TOP_PAGES_TO_SELECT = 9;
 
+// Delays entre etapas (ms)
+const DELAY_AFTER_BOOK_MS = 900;            // atraso entre "Livro" e "Conteúdo complementar"
+const DELAY_AFTER_COMPLEMENTARY_MS = 900;   // atraso entre "Conteúdo complementar" e "Conteúdo premium"
+
+// Helper de espera
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // === Helpers locais para renderização parcial (para SSE) ===
 function buttonForType(tipoRaw, isPremium) {
 	const tipo = String(tipoRaw || "").toLowerCase();
@@ -248,7 +255,7 @@ export default async function handler(req, res) {
 		}).sort((a, b) => (b.finalScore - a.finalScore) || (a.pagina - b.pagina));
 
 		if (!ranked.length) {
-			// Streaming: envia primeiro o livro, depois o dicionário
+			// Streaming: envia primeiro o livro, depois o dicionário com delays
 			if (wantsSSE) {
 				const answer = "Não encontrei conteúdo no livro.";
 				// Livro (primeiro chunk)
@@ -259,12 +266,15 @@ export default async function handler(req, res) {
 				});
 				try { res.flush?.(); } catch {}
 
-				// Complementar
+				// Dispara busca do dicionário em paralelo enquanto mostra "digitando..."
+				const dictPromise = recommendFromDictionary(req, question);
+
+				// Complementar (typing + delay)
 				sse("typing", { phase: "complementary" });
 				try { res.flush?.(); } catch {}
+				await sleep(DELAY_AFTER_BOOK_MS);
 
-				// Busca dicionário depois do livro
-				const dictRec = await recommendFromDictionary(req, question);
+				const dictRec = await dictPromise;
 				const freeItems = (dictRec.raw || []).filter(x => !x.pago);
 				const premiumItems = (dictRec.raw || []).filter(x => x.pago);
 
@@ -274,9 +284,11 @@ export default async function handler(req, res) {
 				});
 				try { res.flush?.(); } catch {}
 
-				// Premium
+				// Premium (typing + delay)
 				sse("typing", { phase: "premium" });
 				try { res.flush?.(); } catch {}
+				await sleep(DELAY_AFTER_COMPLEMENTARY_MS);
+
 				sse("premium", {
 					html: renderDictSection(premiumItems, true),
 					count: premiumItems.length
@@ -345,12 +357,15 @@ export default async function handler(req, res) {
 				});
 				try { res.flush?.(); } catch {}
 
-				// Complementar
+				// Dispara busca do dicionário em paralelo
+				const dictPromise = recommendFromDictionary(req, question);
+
+				// Complementar (typing + delay)
 				sse("typing", { phase: "complementary" });
 				try { res.flush?.(); } catch {}
+				await sleep(DELAY_AFTER_BOOK_MS);
 
-				// Busca dicionário depois do livro
-				const dictRec = await recommendFromDictionary(req, question);
+				const dictRec = await dictPromise;
 				const freeItems = (dictRec.raw || []).filter(x => !x.pago);
 				const premiumItems = (dictRec.raw || []).filter(x => x.pago);
 
@@ -360,9 +375,11 @@ export default async function handler(req, res) {
 				});
 				try { res.flush?.(); } catch {}
 
-				// Premium
+				// Premium (typing + delay)
 				sse("typing", { phase: "premium" });
 				try { res.flush?.(); } catch {}
+				await sleep(DELAY_AFTER_COMPLEMENTARY_MS);
+
 				sse("premium", {
 					html: renderDictSection(premiumItems, true),
 					count: premiumItems.length
@@ -465,41 +482,46 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 		logOpenAIResponse("chat.completions.create", chatResp, { duration_ms: chatMs });
 
 		const answer = chatResp.choices?.[0]?.message?.content?.trim() || "Não encontrei conteúdo no livro.";
-		// Livro primeiro no SSE, antes do dicionário
+
+		// Livro primeiro no SSE
 		if (wantsSSE) {
 			sse("book", {
 				html: renderBookHtml(answer),
 				used_pages: limitedPages,
 				original_pages: selectedPages
 			});
+			try { res.flush?.(); } catch {}
+
+			// Dispara busca do dicionário em paralelo enquanto aguardamos o delay
+			const dictPromise = recommendFromDictionary(req, question);
+
+			// Complementar (typing + delay)
 			sse("typing", { phase: "complementary" });
-		}
+			try { res.flush?.(); } catch {}
+			await sleep(DELAY_AFTER_BOOK_MS);
 
-		logSection("Resposta bruta gerada");
-		logObj("answer", answer);
+			const dictRec = await dictPromise;
+			const freeItems = (dictRec.raw || []).filter(x => !x.pago);
+			const premiumItems = (dictRec.raw || []).filter(x => x.pago);
 
-		// 10) Dicionário (após enviar livro no SSE)
-		const dictRec = await recommendFromDictionary(req, question);
-
-		// 11) Renderização final (SSE em etapas)
-		const notFound = answer === "Não encontrei conteúdo no livro.";
-		const citedPages = extractCitedPages(answer);
-		const freeItems = (dictRec.raw || []).filter(x => !x.pago);
-		const premiumItems = (dictRec.raw || []).filter(x => x.pago);
-		const finalAnswer = notFound
-			? answer
-			: renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
-
-		if (wantsSSE) {
 			sse("complementary", {
 				html: renderDictSection(freeItems, false),
 				count: freeItems.length
 			});
+			try { res.flush?.(); } catch {}
+
+			// Premium (typing + delay)
 			sse("typing", { phase: "premium" });
+			try { res.flush?.(); } catch {}
+			await sleep(DELAY_AFTER_COMPLEMENTARY_MS);
+
 			sse("premium", {
 				html: renderDictSection(premiumItems, true),
 				count: premiumItems.length
 			});
+			try { res.flush?.(); } catch {}
+
+			// Done + meta
 			sse("done", {
 				search_scope: searchScope,
 				semantic_paths: relevantPaths.map(p => ({
@@ -521,7 +543,7 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 			return res.end();
 		}
 
-		// JSON (comportamento atual, inalterado)
+		// 10/11) JSON (comportamento atual)
 		return res.status(200).json({
 			answer: finalAnswer,
 			used_pages: limitedPages,
