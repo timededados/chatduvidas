@@ -25,8 +25,8 @@ const ADJACENT_RANGE = 0;
 const TOP_PAGES_TO_SELECT = 9;
 
 // Delays entre etapas (ms)
-const DELAY_AFTER_BOOK_MS = 900;            // atraso entre "Livro" e "Conteúdo complementar"
-const DELAY_AFTER_COMPLEMENTARY_MS = 900;   // atraso entre "Conteúdo complementar" e "Conteúdo premium"
+const DELAY_AFTER_BOOK_MS = 1500;            // atraso entre "Livro" e "Conteúdo complementar"
+const DELAY_AFTER_COMPLEMENTARY_MS = 1500;   // atraso entre "Conteúdo complementar" e "Conteúdo premium"
 
 // Helper de espera
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
