@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 
 import { als, getLogs, logSection, logObj, logLine, logOpenAIRequest, logOpenAIResponse, truncate } from "../lib/logging.js";
-import { normalizeStr, countOccurrences, extractCitedPages, seedFromString } from "../lib/text.js";
+import { normalizeStr, countOccurrences, extractCitedPages, seedFromString, escapeHtml, escapeAttr } from "../lib/text.js";
 import { cosineSim } from "../lib/similarity.js";
 import { expandWithAdjacentPages } from "../lib/context.js";
 import { semanticSearchSummary } from "../lib/summarySearch.js";
@@ -24,6 +24,50 @@ const EXPAND_CONTEXT = false;
 const ADJACENT_RANGE = 0;
 const TOP_PAGES_TO_SELECT = 9;
 
+// === Helpers locais para renderização parcial (para SSE) ===
+function buttonForType(tipoRaw, isPremium) {
+	const tipo = String(tipoRaw || "").toLowerCase();
+	if (tipo.includes("podteme")) return { label: "🎧 Ouvir episódio", kind: "primary" };
+	if (tipo.includes("preparatório teme") || tipo.includes("preparatorio teme")) return { label: "▶️ Assistir aula", kind: "accent" };
+	if (tipo.includes("instagram")) return { label: "📱 Ver post", kind: "primary" };
+	if (tipo.includes("blog")) return { label: "📰 Ler artigo", kind: "primary" };
+	if (tipo.includes("curso")) return { label: isPremium ? "💎 Conhecer o curso" : "▶️ Acessar curso", kind: isPremium ? "premium" : "accent" };
+	return { label: "🔗 Acessar conteúdo", kind: isPremium ? "premium" : "primary" };
+}
+function btnStyle(kind) {
+	const base = "display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:500;font-size:13px;border:1px solid;cursor:pointer;";
+	if (kind === "accent") return base + "background:rgba(56,189,248,0.08);border-color:rgba(56,189,248,0.25);color:#38bdf8;";
+	if (kind === "premium") return base + "background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:#f59e0b;";
+	return base + "background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);color:#22c55e;";
+}
+function renderDictItemsList(items, isPremiumSection) {
+	if (!items.length) return "";
+	const itemsHtml = items.map(it => {
+		const titulo = escapeHtml(it.titulo || "");
+		const autor = it.autor ? ` <span style="color:#94a3b8">— ${escapeHtml(it.autor)}</span>` : "";
+		const tipo = it.tipoConteudo || it.tipo_conteudo || "";
+		const { label, kind } = buttonForType(tipo, !!it.pago);
+		const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank"` : "";
+		const btn = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
+		const badges = isPremiumSection
+			? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Carga horária: 12h</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Aulas on-demand</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Certificado</span></div>`
+			: "";
+		return `<div style="padding:10px;border:1px solid #1f2937;border-radius:8px;background:rgba(255,255,255,0.015);margin-bottom:8px"><div><strong>${titulo}</strong>${autor}</div>${btn}${badges}</div>`;
+	}).join("");
+	const color = isPremiumSection ? "#f59e0b" : "#22c55e";
+	const label = isPremiumSection ? "Conteúdo premium (opcional)" : "Conteúdo complementar";
+	return `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${label}</span><div style="margin-top:10px">${itemsHtml}</div></section>`;
+}
+function renderBookHtml(bookAnswer) {
+	const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600;color:#1a1a1a">Encontrei a informação que responde à sua dúvida 👇</h1></header>`;
+	const bookSection = `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>Livro (fonte principal)</span><div style="position:relative;padding:12px 14px;border-left:3px solid #38bdf8;background:rgba(56,189,248,0.06);border-radius:6px;line-height:1.5;margin-top:10px"><div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div><small style="display:block;color:#94a3b8;margin-top:6px;font-size:11px">Trechos do livro-base do curso.</small></div></section>`;
+	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${header + bookSection}</div>`;
+}
+function renderDictSection(items, isPremium) {
+	if (!items || !items.length) return "";
+	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${renderDictItemsList(items, isPremium)}</div>`;
+}
+
 // Next.js API config
 export const config = {
 	api: { bodyParser: { sizeLimit: "25mb" } }
@@ -36,14 +80,41 @@ export default async function handler(req, res) {
 	als.enterWith({ logs: [], enabled: true });
 
 	try {
+		// Detecta modo streaming (SSE)
+		const wantsSSE = Boolean(req.body?.stream)
+			|| (typeof req.query?.stream !== "undefined" && String(req.query.stream).toLowerCase() !== "false")
+			|| String(req.headers?.accept || "").includes("text/event-stream");
+
+		// Helper para SSE
+		const sse = wantsSSE ? (event, data) => {
+			try {
+				res.write(`event: ${event}\n`);
+				res.write(`data: ${JSON.stringify(data)}\n\n`);
+			} catch {}
+		} : null;
+
+		if (wantsSSE) {
+			res.writeHead(200, {
+				"Content-Type": "text/event-stream",
+				"Cache-Control": "no-cache, no-transform",
+				"Connection": "keep-alive"
+			});
+		}
+
 		// 0) Entrada (texto ou áudio)
 		const { question: questionRaw, audio, audio_mime } = req.body || {};
 		let question = String(questionRaw || "").trim();
 		if (!question && audio) {
 			logSection("Entrada de áudio detectada");
+			if (wantsSSE) sse("typing", { phase: "book" });
 			question = await transcribeBase64AudioToText(audio, audio_mime || "audio/webm");
 		}
 		if (!question || !question.trim()) {
+			if (wantsSSE) {
+				sse("error", { message: "Pergunta vazia" });
+				sse("done", { logs: getLogs() });
+				return res.end();
+			}
 			return res.status(400).json({ error: "Pergunta vazia", logs: getLogs() });
 		}
 		logSection("Pergunta recebida");
@@ -153,6 +224,54 @@ export default async function handler(req, res) {
 		}).sort((a, b) => (b.finalScore - a.finalScore) || (a.pagina - b.pagina));
 
 		if (!ranked.length) {
+			// Streaming: ainda envia etapas subsequentes
+			if (wantsSSE) {
+				const answer = "Não encontrei conteúdo no livro.";
+				// 10) Dicionário (ainda vale enviar sugestões)
+				const dictRec = await recommendFromDictionary(req, question);
+				const freeItems = (dictRec.raw || []).filter(x => !x.pago);
+				const premiumItems = (dictRec.raw || []).filter(x => x.pago);
+
+				// Livro
+				sse("book", {
+					html: renderBookHtml(answer),
+					used_pages: [],
+					original_pages: []
+				});
+
+				// Complementar
+				sse("typing", { phase: "complementary" });
+				sse("complementary", {
+					html: renderDictSection(freeItems, false),
+					count: freeItems.length
+				});
+
+				// Premium
+				sse("typing", { phase: "premium" });
+				sse("premium", {
+					html: renderDictSection(premiumItems, true),
+					count: premiumItems.length
+				});
+
+				// Done
+				sse("done", {
+					search_scope: searchScope,
+					semantic_paths: relevantPaths,
+					efficiency_metrics: {
+						candidates_evaluated: candidatePages.length,
+						total_pages: pageEmbeddings.length,
+						reduction_percentage: searchScope === "scoped"
+							? `${((1 - candidatePages.length / pageEmbeddings.length) * 100).toFixed(1)}%`
+							: "0%",
+						context_limited: false,
+						pages_removed: 0
+					},
+					question_used: question,
+					logs: getLogs()
+				});
+				return res.end();
+			}
+			// JSON (comportamento atual)
 			return res.json({
 				answer: "Não encontrei conteúdo no livro.",
 				used_pages: [],
@@ -162,10 +281,6 @@ export default async function handler(req, res) {
 				logs: getLogs()
 			});
 		}
-
-		const top10 = ranked.slice(0, Math.min(10, ranked.length));
-		logSection("Top 3 para referência rápida");
-		logObj("top_3_summary", top10.slice(0, 3).map(r => ({ pagina: r.pagina, score: r.finalScore.toFixed(3) })));
 
 		// 7) Seleção e expansão de páginas
 		logSection("Etapa 7: Seleção e expansão de páginas");
@@ -189,6 +304,45 @@ export default async function handler(req, res) {
 			logObj("removed_pages", nonEmptyPages.filter(p => !limitedPages.includes(p)));
 		}
 		if (!limitedPages.length) {
+			if (wantsSSE) {
+				const answer = "Não encontrei conteúdo no livro.";
+				const dictRec = await recommendFromDictionary(req, question);
+				const freeItems = (dictRec.raw || []).filter(x => !x.pago);
+				const premiumItems = (dictRec.raw || []).filter(x => x.pago);
+
+				sse("book", {
+					html: renderBookHtml(answer),
+					used_pages: [],
+					original_pages: selectedPages || []
+				});
+				sse("typing", { phase: "complementary" });
+				sse("complementary", {
+					html: renderDictSection(freeItems, false),
+					count: freeItems.length
+				});
+				sse("typing", { phase: "premium" });
+				sse("premium", {
+					html: renderDictSection(premiumItems, true),
+					count: premiumItems.length
+				});
+				sse("done", {
+					search_scope: searchScope,
+					semantic_paths: relevantPaths,
+					efficiency_metrics: {
+						candidates_evaluated: candidatePages.length,
+						total_pages: pageEmbeddings.length,
+						reduction_percentage: searchScope === "scoped"
+							? `${((1 - candidatePages.length / pageEmbeddings.length) * 100).toFixed(1)}%`
+							: "0%",
+						context_limited: false,
+						pages_removed: 0
+					},
+					question_used: question,
+					logs: getLogs()
+				});
+				return res.end();
+			}
+			// JSON (comportamento atual)
 			return res.json({
 				answer: "Não encontrei conteúdo no livro.",
 				used_pages: [],
@@ -198,8 +352,6 @@ export default async function handler(req, res) {
 				logs: getLogs()
 			});
 		}
-		logObj("final_pages_for_context", limitedPages);
-		logObj("total_pages", limitedPages.length);
 
 		// 8) Contexto
 		logSection("Etapa 8: Montagem de contexto");
@@ -219,7 +371,7 @@ export default async function handler(req, res) {
 		}
 
 		// 9) Geração (resposta literal)
-		logSection("Etapa 9: Geração de resposta");
+		if (wantsSSE) sse("typing", { phase: "book" });
 		const systemInstruction = `
 Você é um assistente que responde EXCLUSIVAMENTE com trechos literais de um livro-base.
 
@@ -273,21 +425,61 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 		logObj("answer", answer);
 
 		// 10) Dicionário
-		logSection("Etapa 10: Recomendação do dicionário");
+		if (wantsSSE) sse("typing", { phase: "complementary" });
 		const dictRec = await recommendFromDictionary(req, question);
 
-		// 11) Renderização final
-		logSection("Etapa 11: Renderização final");
-		const notFound = answer === "Não encontrei conteúdo no livro.";
-		const citedPages = extractCitedPages(answer);
-		const finalAnswer = notFound ? answer : renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
+		// 11) Renderização final (streaming primeiro, depois JSON padrão)
+		// ...existing code (calcula notFound, citedPages, finalAnswer)...
 
-		logObj("final_output", {
-			has_book_answer: !notFound,
-			dict_items_count: dictRec.raw.length,
-			cited_pages: citedPages
-		});
+		if (wantsSSE) {
+			const dictRec = await recommendFromDictionary(req, question);
+			const freeItems = (dictRec.raw || []).filter(x => !x.pago);
+			const premiumItems = (dictRec.raw || []).filter(x => x.pago);
 
+			// Livro (primeiro chunk)
+			sse("book", {
+				html: renderBookHtml(answer),
+				used_pages: limitedPages,
+				original_pages: selectedPages
+			});
+
+			// Complementar
+			sse("typing", { phase: "complementary" });
+			sse("complementary", {
+				html: renderDictSection(freeItems, false),
+				count: freeItems.length
+			});
+
+			// Premium
+			sse("typing", { phase: "premium" });
+			sse("premium", {
+				html: renderDictSection(premiumItems, true),
+				count: premiumItems.length
+			});
+
+			// Done + meta
+			sse("done", {
+				search_scope: searchScope,
+				semantic_paths: relevantPaths.map(p => ({
+					path: `${p.secao} > ${p.categoria} > ${p.topico || 'ALL'} > ${p.subtopico || 'ALL'}`,
+					reasoning: p.reasoning
+				})),
+				efficiency_metrics: {
+					candidates_evaluated: candidatePages.length,
+					total_pages: pageEmbeddings.length,
+					reduction_percentage: searchScope === "scoped"
+						? `${((1 - candidatePages.length / pageEmbeddings.length) * 100).toFixed(1)}%`
+						: "0%",
+					context_limited: nonEmptyPages.length > limitedPages.length,
+					pages_removed: nonEmptyPages.length - limitedPages.length
+				},
+				question_used: question,
+				logs: getLogs()
+			});
+			return res.end();
+		}
+
+		// JSON (comportamento atual)
 		return res.status(200).json({
 			answer: finalAnswer,
 			used_pages: limitedPages,
@@ -311,7 +503,14 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 			logs: getLogs()
 		});
 	} catch (err) {
-		console.error("Erro no /api/chat:", err);
+		// ...existing code...
+		if (req.body?.stream || String(req.headers?.accept || "").includes("text/event-stream")) {
+			try {
+				res.write(`event: error\ndata: ${JSON.stringify({ message: String(err) })}\n\n`);
+				res.write(`event: done\ndata: ${JSON.stringify({ logs: getLogs() })}\n\n`);
+			} catch {}
+			return res.end();
+		}
 		return res.status(500).json({
 			error: String(err),
 			logs: getLogs()
