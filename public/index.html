@@ -331,7 +331,7 @@
         if (ctx.state === "suspended") ctx.resume();
         return ctx;
       }
-      async function beep(freq = 880, duration = 0.22, volume = 0.12) {
+      async function beep(freq = 880, duration = 0.24, volume = 0.20) {
         try {
           const ac = ensureCtx();
           const osc = ac.createOscillator();
@@ -413,7 +413,6 @@
 
         const handleEvent = (evt, data) => {
           if (evt === "ready") {
-            // garante que o áudio está desbloqueado antes do primeiro beep
             AudioNotify.resume();
             return;
           }
@@ -423,24 +422,31 @@
           }
           if (evt === "book") {
             ui.replaceTyping(data?.html || "");
-            AudioNotify.beep(900, 0.22, 0.14); // beep mais alto para a 1ª resposta
+            // Garantir áudio desbloqueado e aguardar próximo paint + atraso maior
+            AudioNotify.resume();
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                AudioNotify.resume();
+                AudioNotify.beep(920, 0.26, 0.20);
+              }, 220); // aumento do atraso para garantir que o 1º beep soe
+            });
             ui.showTyping("complementary");
             return;
           }
           if (evt === "complementary") {
             if (data?.html) ui.replaceTyping(data.html);
-            AudioNotify.beep(760, 0.22, 0.12);
+            AudioNotify.beep(780, 0.24, 0.18);
             ui.showTyping("premium");
             return;
           }
           if (evt === "premium") {
             if (data?.html) ui.replaceTyping(data.html);
-            AudioNotify.beep(660, 0.22, 0.12);
+            AudioNotify.beep(680, 0.24, 0.18);
             return;
           }
           if (evt === "error") {
             ui.replaceTyping("⚠️ Erro: " + (data?.message || "Falha no streaming"));
-            AudioNotify.beep(500, 0.25, 0.16);
+            AudioNotify.beep(500, 0.27, 0.22);
             return;
           }
           if (evt === "done") {
