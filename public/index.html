@@ -328,13 +328,12 @@
       let ctx;
       function ensureCtx() {
         if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-        return ctx; // REMOVIDO: não chamar resume aqui
+        if (ctx.state === "suspended") ctx.resume();
+        return ctx;
       }
       async function beep(freq = 880, duration = 0.24, volume = 0.20) {
         try {
-          // NOVO: garante contexto em execução antes de tocar
-          const ac = await resume();
-          if (!ac) return;
+          const ac = ensureCtx();
           const osc = ac.createOscillator();
           const gain = ac.createGain();
           osc.type = "sine";
@@ -350,19 +349,12 @@
           osc.stop(now + duration + 0.03);
         } catch {}
       }
-      async function resume() {
-        try {
-          const ac = ensureCtx();
-          if (ac.state === "suspended") {
-            await ac.resume(); // NOVO: aguarda desbloquear
-          }
-          return ac;
-        } catch {}
+      function resume() {
+        try { ensureCtx(); ctx?.resume?.(); } catch {}
       }
       function initOnFirstInteraction() {
-        // torna assíncrono para aguardar resume
-        const kick = async () => {
-          try { await resume(); } catch {}
+        const kick = () => {
+          try { resume(); } catch {}
           document.removeEventListener("click", kick);
           document.removeEventListener("keydown", kick);
         };
@@ -419,9 +411,22 @@
         const decoder = new TextDecoder();
         let buffer = "";
 
+        // Flag para garantir que o 1º beep toque exatamente uma vez
+        let bookBeepPlayed = false;
+        const tryBookBeep = () => {
+          if (bookBeepPlayed) return;
+          try {
+            AudioNotify.resume();
+            AudioNotify.beep(920, 0.26, 0.20);
+            bookBeepPlayed = true;
+          } catch {}
+        };
+
         const handleEvent = (evt, data) => {
           if (evt === "ready") {
             AudioNotify.resume();
+            // Pequeno delay para garantir que o contexto está pronto
+            setTimeout(() => AudioNotify.resume(), 50);
             return;
           }
           if (evt === "typing") {
@@ -430,6 +435,15 @@
           }
           if (evt === "book") {
             ui.replaceTyping(data?.html || "");
+            // Garante que o áudio está desbloqueado e aguarda um pouco mais
+            AudioNotify.resume();
+            requestAnimationFrame(() => {
+              // Múltiplas tentativas com delays crescentes
+              setTimeout(tryBookBeep, 100);
+              setTimeout(tryBookBeep, 250);
+              setTimeout(tryBookBeep, 500);
+              setTimeout(tryBookBeep, 800);
+            });
             ui.showTyping("complementary");
             return;
           }
@@ -488,36 +502,20 @@
 
     function makeUIController() {
       let typingMsg = null;
-      let firstBeepDone = false; // NOVO: guarda para garantir que o primeiro beep toque uma vez por resposta
-
       return {
         showTyping(phase) {
+          // se já existe, mantém; se não, cria
           if (!typingMsg) typingMsg = append("bot", '<span class="typing">•••</span>');
         },
         replaceTyping(html) {
-          const content = html && html.trim() ? html : '<span class="typing">•••</span>';
-
           if (typingMsg) {
             const bubble = typingMsg.querySelector(".bubble");
-            if (bubble) bubble.innerHTML = content;
-            // Dispara o primeiro beep uma vez que o conteúdo se torna visível
-            if (!firstBeepDone && html && html.trim()) {
-              firstBeepDone = true;
-              requestAnimationFrame(() => {
-                AudioNotify.resume();
-                setTimeout(() => { try { AudioNotify.beep(920, 0.26, 0.20); } catch {} }, 100);
-              });
-            }
+            if (bubble) bubble.innerHTML = html && html.trim() ? html : '<span class="typing">•••</span>';
+            // Depois de substituir, "encerra" o typing atual
             typingMsg = null;
           } else {
-            append("bot", content);
-            if (!firstBeepDone && html && html.trim()) {
-              firstBeepDone = true;
-              requestAnimationFrame(() => {
-                AudioNotify.resume();
-                setTimeout(() => { try { AudioNotify.beep(920, 0.26, 0.20); } catch {} }, 100);
-              });
-            }
+            // se por algum motivo não existe, apenas adiciona como nova mensagem
+            append("bot", html && html.trim() ? html : '<span class="typing">•••</span>');
           }
         },
         finish() {
@@ -535,8 +533,8 @@
       append("user", question);
       q.value = "";
       q.style.height = "60px";
-      // desbloqueia áudio antes de começar o streaming (e aguarda)
-      await AudioNotify.resume(); // ALTERADO: aguarda o resume
+      // desbloqueia áudio antes de começar o streaming
+      AudioNotify.resume();
 
       const ui = makeUIController();
       ui.showTyping("book");
@@ -661,10 +659,11 @@
 
     async function sendAudio(blob) {
       const voiceMsg = append("user", "🎙️ Mensagem de voz");
+      // UI streaming
       const ui = makeUIController();
       ui.showTyping("book");
-      // desbloqueia áudio antes do streaming (e aguarda)
-      await AudioNotify.resume(); // ALTERADO: aguarda o resume
+      // desbloqueia áudio antes do streaming
+      AudioNotify.resume();
       try {
         const dataUrl = await new Promise((resolve, reject) => {
           const r = new FileReader();
