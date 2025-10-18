@@ -65,7 +65,7 @@ function renderBookHtml(bookAnswer) {
 }
 function renderDictSection(items, isPremium) {
 	if (!items || !items.length) return "";
-	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${renderDictItemsList(items, isPremium)}</div>`;
+	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e7e7eb">${renderDictItemsList(items, isPremium)}</div>`;
 }
 
 // Next.js API config
@@ -429,13 +429,16 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 		const dictRec = await recommendFromDictionary(req, question);
 
 		// 11) Renderização final (streaming primeiro, depois JSON padrão)
-		// ...existing code (calcula notFound, citedPages, finalAnswer)...
+		// Calcular artefatos finais (usados no SSE e no JSON)
+		const notFound = answer === "Não encontrei conteúdo no livro.";
+		const citedPages = extractCitedPages(answer);
+		const freeItems = (dictRec.raw || []).filter(x => !x.pago);
+		const premiumItems = (dictRec.raw || []).filter(x => x.pago);
+		const finalAnswer = notFound
+			? answer
+			: renderFinalHtml({ bookAnswer: answer, citedPages, dictItems: dictRec.raw });
 
 		if (wantsSSE) {
-			const dictRec = await recommendFromDictionary(req, question);
-			const freeItems = (dictRec.raw || []).filter(x => !x.pago);
-			const premiumItems = (dictRec.raw || []).filter(x => x.pago);
-
 			// Livro (primeiro chunk)
 			sse("book", {
 				html: renderBookHtml(answer),
