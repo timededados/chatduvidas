@@ -326,14 +326,35 @@
     // === Aviso sonoro leve (Web Audio API) ===
     const AudioNotify = (() => {
       let ctx;
+      let isReady = false;
+      
       function ensureCtx() {
-        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (ctx.state === "suspended") ctx.resume();
+        if (!ctx) {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+          console.log('[Audio] Contexto criado, estado:', ctx.state);
+        }
+        if (ctx.state === "suspended") {
+          ctx.resume().then(() => {
+            console.log('[Audio] Contexto resumed');
+            isReady = true;
+          });
+        } else if (ctx.state === "running") {
+          isReady = true;
+        }
         return ctx;
       }
+      
       async function beep(freq = 880, duration = 0.24, volume = 0.20) {
         try {
           const ac = ensureCtx();
+          console.log('[Audio] Tentando beep, estado do contexto:', ac.state, 'isReady:', isReady);
+          
+          // Se ainda está suspended, força resume e aguarda
+          if (ac.state === "suspended") {
+            await ac.resume();
+            console.log('[Audio] Contexto resumed antes do beep');
+          }
+          
           const osc = ac.createOscillator();
           const gain = ac.createGain();
           osc.type = "sine";
@@ -347,28 +368,51 @@
           gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
           osc.start(now);
           osc.stop(now + duration + 0.03);
-        } catch {}
+          
+          console.log('[Audio] Beep tocado com sucesso! freq:', freq);
+        } catch(e) {
+          console.error('[Audio] Erro ao tocar beep:', e);
+        }
       }
+      
       function resume() {
         try { 
           const ac = ensureCtx();
-          if (ac.state === "suspended") ac.resume();
-        } catch {}
+          if (ac.state === "suspended") {
+            ac.resume();
+          }
+        } catch(e) {
+          console.error('[Audio] Erro no resume:', e);
+        }
       }
+      
       function forceInit() {
-        // Força criação e desbloqueio do contexto de forma síncrona
         try {
+          console.log('[Audio] forceInit chamado');
           const ac = ensureCtx();
-          // Toca um som silencioso para garantir desbloqueio
+          
+          // Força resume síncrono
+          if (ac.state === "suspended") {
+            ac.resume();
+          }
+          
+          // Toca som silencioso AUDÍVEL para desbloqueio garantido
           const osc = ac.createOscillator();
           const gain = ac.createGain();
-          gain.gain.value = 0;
+          gain.gain.value = 0.001; // Volume muito baixo mas não zero
           osc.connect(gain);
           gain.connect(ac.destination);
-          osc.start(ac.currentTime);
-          osc.stop(ac.currentTime + 0.001);
-        } catch {}
+          const now = ac.currentTime;
+          osc.start(now);
+          osc.stop(now + 0.01);
+          
+          isReady = true;
+          console.log('[Audio] forceInit concluído, estado:', ac.state);
+        } catch(e) {
+          console.error('[Audio] Erro no forceInit:', e);
+        }
       }
+      
       function initOnFirstInteraction() {
         const kick = () => {
           try { resume(); } catch {}
@@ -378,6 +422,7 @@
         document.addEventListener("click", kick);
         document.addEventListener("keydown", kick);
       }
+      
       return { beep, initOnFirstInteraction, resume, forceInit };
     })();
 
@@ -441,6 +486,7 @@
 
         const handleEvent = (evt, data) => {
           if (evt === "ready") {
+            console.log('[SSE] Evento ready recebido');
             AudioNotify.resume();
             return;
           }
@@ -449,9 +495,11 @@
             return;
           }
           if (evt === "book") {
+            console.log('[SSE] Evento book recebido');
             ui.replaceTyping(data?.html || "");
             // Toca o beep imediatamente
             if (!bookBeepPlayed) {
+              console.log('[SSE] Tocando beep do book...');
               AudioNotify.beep(920, 0.26, 0.20);
               bookBeepPlayed = true;
             }
@@ -459,12 +507,14 @@
             return;
           }
           if (evt === "complementary") {
+            console.log('[SSE] Evento complementary recebido');
             if (data?.html) ui.replaceTyping(data.html);
             AudioNotify.beep(780, 0.24, 0.18);
             ui.showTyping("premium");
             return;
           }
           if (evt === "premium") {
+            console.log('[SSE] Evento premium recebido');
             if (data?.html) ui.replaceTyping(data.html);
             AudioNotify.beep(680, 0.24, 0.18);
             return;
@@ -542,8 +592,12 @@
       const question = q.value.trim();
       if (!question) return;
       
+      console.log('[Chat] Enviando pergunta, forçando init do áudio...');
       // CRÍTICO: Desbloqueia áudio SINCRONAMENTE durante a interação do usuário
       AudioNotify.forceInit();
+      
+      // Aguarda um pouco para garantir que o contexto está pronto
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       append("user", question);
       q.value = "";
