@@ -323,6 +323,47 @@
     const micBtn = document.getElementById("mic");
     const micLabel = document.getElementById("mic-label");
 
+    // === Aviso sonoro leve (Web Audio API) ===
+    const AudioNotify = (() => {
+      let ctx;
+      function ensureCtx() {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === "suspended") ctx.resume();
+        return ctx;
+      }
+      async function beep(freq = 880, duration = 0.18, volume = 0.025) {
+        try {
+          const ac = ensureCtx();
+          const osc = ac.createOscillator();
+          const gain = ac.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          gain.gain.value = 0;
+          osc.connect(gain);
+          gain.connect(ac.destination);
+          const now = ac.currentTime;
+          // envelope rápido para não incomodar
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(volume, now + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+          osc.start(now);
+          osc.stop(now + duration + 0.02);
+        } catch {}
+      }
+      function initOnFirstInteraction() {
+        const resume = () => {
+          try { ensureCtx(); } catch {}
+          document.removeEventListener("click", resume);
+          document.removeEventListener("keydown", resume);
+        };
+        document.addEventListener("click", resume);
+        document.addEventListener("keydown", resume);
+      }
+      return { beep, initOnFirstInteraction };
+    })();
+
+    AudioNotify.initOnFirstInteraction();
+
     function append(role, text) {
       const msg = document.createElement("div");
       msg.className = `msg ${role}`;
@@ -356,9 +397,14 @@
           // Fallback para JSON
           const data = await resp.json().catch(() => ({}));
           ui.finish();
-          if (data.error) append("bot", "⚠️ Erro: " + data.error);
-          else if (data.answer) append("bot", data.answer);
-          else append("bot", "⚠️ Resposta inválida.");
+          if (data.error) {
+            append("bot", "⚠️ Erro: " + data.error);
+          } else if (data.answer) {
+            append("bot", data.answer);
+            AudioNotify.beep(820); // beep único no fallback
+          } else {
+            append("bot", "⚠️ Resposta inválida.");
+          }
           return;
         }
 
@@ -373,22 +419,24 @@
           }
           if (evt === "book") {
             ui.replaceTyping(data?.html || "");
-            // prepara próximo "digitando..."
+            AudioNotify.beep(900); // primeiro beep
             ui.showTyping("complementary");
             return;
           }
           if (evt === "complementary") {
             if (data?.html) ui.replaceTyping(data.html);
-            // prepara próximo "digitando..."
+            AudioNotify.beep(760); // segundo beep
             ui.showTyping("premium");
             return;
           }
           if (evt === "premium") {
             if (data?.html) ui.replaceTyping(data.html);
+            AudioNotify.beep(660); // terceiro beep
             return;
           }
           if (evt === "error") {
             ui.replaceTyping("⚠️ Erro: " + (data?.message || "Falha no streaming"));
+            AudioNotify.beep(500, 0.2, 0.03); // beep diferente para erro
             return;
           }
           if (evt === "done") {
@@ -424,6 +472,7 @@
       } catch (e) {
         ui.finish();
         append("bot", "⚠️ Erro de conexão: " + e.message);
+        AudioNotify.beep(500, 0.2, 0.03);
       }
     }
 
