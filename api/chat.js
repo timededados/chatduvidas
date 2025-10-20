@@ -56,10 +56,30 @@ function renderDictItemsList(items, isPremiumSection) {
 		const { label, kind } = buttonForType(tipo, !!it.pago);
 		const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank"` : "";
 		const btn = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
+
+		// Novo: imagem para itens premium (campos possíveis: imagem, image, thumbnail, thumb, cover)
+		const rawImg = isPremiumSection && (it.imagem || it.image || it.thumbnail || it.thumb || it.cover);
+		const imgTag = rawImg
+			? `<img src="${escapeAttr(String(rawImg))}" alt="${titulo}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #1f2937;background:#0b1220">`
+			: "";
+
 		const badges = isPremiumSection
 			? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Carga horária: 12h</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Aulas on-demand</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Certificado</span></div>`
 			: "";
-		return `<div style="padding:10px;border:1px solid #1f2937;border-radius:8px;background:rgba(255,255,255,0.015);margin-bottom:8px"><div><strong>${titulo}</strong>${autor}</div>${btn}${badges}</div>`;
+
+		// Layout com imagem (quando existir em premium) ao lado do conteúdo
+		const inner = imgTag
+			? `<div style="display:flex;gap:12px;align-items:flex-start">
+					<div style="flex:0 0 auto">${imgTag}</div>
+					<div style="min-width:0;flex:1 1 auto">
+						<div><strong>${titulo}</strong>${autor}</div>
+						${btn}
+						${badges}
+					</div>
+				</div>`
+			: `<div><strong>${titulo}</strong>${autor}</div>${btn}${badges}`;
+
+		return `<div style="padding:10px;border:1px solid #1f2937;border-radius:8px;background:rgba(255,255,255,0.015);margin-bottom:8px">${inner}</div>`;
 	}).join("");
 	const color = isPremiumSection ? "#f59e0b" : "#22c55e";
 	const label = isPremiumSection ? "Conteúdo premium (opcional)" : "Conteúdo complementar";
