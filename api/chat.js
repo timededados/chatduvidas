@@ -77,8 +77,9 @@ function renderDictSection(items, isPremium) {
 // Novo: renderizador simples em formato de “balão”
 function renderMessageBubbleHtml(text) {
 	const safe = escapeHtml(String(text || ""));
+	// Texto simples, sem borda e sem fundo
 	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#111827">
-  <div style="display:inline-block;max-width:100%;padding:12px 14px;border:1px solid #1f2937;border-radius:14px;background:rgba(255,255,255,0.02);line-height:1.5">
+  <div style="display:inline-block;max-width:100%;line-height:1.5">
     ${safe.replace(/\n/g, "<br>")}
   </div>
 </div>`;
@@ -215,11 +216,9 @@ Critérios:
 				: "Este chat serve para tirar dúvidas sobre o conteúdo do livro ABRAMED. Envie uma pergunta objetiva para eu procurar os trechos no livro.";
 
 			if (wantsSSE) {
-				sse("book", {
-					// usar balão simples em vez do bloco do livro
-					html: renderMessageBubbleHtml(message),
-					used_pages: [],
-					original_pages: []
+				// Usa um evento genérico para não ativar o layout de “Livro”
+				sse("message", {
+					html: renderMessageBubbleHtml(message)
 				});
 				try { res.flush?.(); } catch {}
 				sse("done", { is_question: false, category, confidence, logs: getLogs() });
