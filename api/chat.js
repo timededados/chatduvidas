@@ -55,7 +55,10 @@ function renderDictItemsList(items, isPremiumSection) {
 		const tipo = it.tipoConteudo || it.tipo_conteudo || "";
 		const { label, kind } = buttonForType(tipo, !!it.pago);
 		const href = it.link ? ` href="${escapeAttr(it.link)}" target="_blank"` : "";
-		const btn = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
+
+		// Botão com e sem margem, para controlar layout
+		const btnWithTop = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
+		const btnNoTop = it.link ? `<div><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
 
 		// Imagem (premium)
 		const rawImg = isPremiumSection && (it.imagemUrl || it.imagem_url || it.imagem || it.imageUrl || it.image || it.thumbnail || it.thumb || it.cover);
@@ -63,20 +66,21 @@ function renderDictItemsList(items, isPremiumSection) {
 			? `<img src="${escapeAttr(String(rawImg))}" alt="${titulo}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #1f2937;background:#0b1220">`
 			: "";
 
-		// Definir badges ANTES de usar na string 'inner'
+		// Badges sem margem própria; o espaçamento será controlado pelo container (gap)
 		const badges = isPremiumSection
-			? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Carga horária: 12h</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Aulas on-demand</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Certificado</span></div>`
+			? `<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Carga horária: 12h</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Aulas on-demand</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Certificado</span></div>`
 			: "";
 
-		// Layout premium com imagem: Título/Autor → Imagem → Botão → Badges
+		// Premium com imagem: usar coluna com gap controlado e sem margins extras
 		const inner = (isPremiumSection && imgTag)
-			? `<div>
+			? `<div style="display:flex;flex-direction:column;gap:6px">
 					<div><strong>${titulo}</strong>${autor}</div>
-					<div style="margin-top:8px">${imgTag}</div>
-					${btn}
+					<div>${imgTag}</div>
+					${btnNoTop}
 					${badges}
 				</div>`
-			: `<div><strong>${titulo}</strong>${autor}</div>${btn}${badges}`;
+			// Demais casos: manter como antes (botão com pequena margem superior)
+			: `<div><strong>${titulo}</strong>${autor}</div>${btnWithTop}${badges}`;
 
 		return `<div style="padding:10px;border:1px solid #1f2937;border-radius:8px;background:rgba(255,255,255,0.015);margin-bottom:8px">${inner}</div>`;
 	}).join("");
