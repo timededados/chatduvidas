@@ -377,7 +377,71 @@
           console.error('[Audio] Erro ao tocar beep:', e);
         }
       }
-      
+
+      // NEW: Chime de duas notas no estilo WhatsApp (sem usar asset proprietário)
+      function playWhatsAppChime({ volume = 0.22, speed = 1 } = {}) {
+        try {
+          const ac = ensureCtx();
+          if (ac.state === "suspended") ac.resume();
+
+          const now = ac.currentTime;
+
+          const master = ac.createGain();
+          master.gain.value = volume;
+
+          const comp = ac.createDynamicsCompressor();
+          comp.threshold.value = -24;
+          comp.knee.value = 12;
+          comp.ratio.value = 6;
+          comp.attack.value = 0.003;
+          comp.release.value = 0.09;
+
+          comp.connect(master);
+          master.connect(ac.destination);
+
+          function chimedNote(freq, t0, dur) {
+            const env = ac.createGain();
+            env.gain.setValueAtTime(0.0001, t0);
+            env.gain.exponentialRampToValueAtTime(1.0, t0 + 0.012 / speed);
+            env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+            // Corpo (triangle) + brilho (sine detunado)
+            const o1 = ac.createOscillator();
+            o1.type = "triangle";
+            o1.frequency.setValueAtTime(freq, t0);
+
+            const o2 = ac.createOscillator();
+            o2.type = "sine";
+            o2.frequency.setValueAtTime(freq, t0);
+            o2.detune.setValueAtTime(8, t0);
+
+            const hp = ac.createBiquadFilter();
+            hp.type = "highpass";
+            hp.frequency.value = 220;
+            hp.Q.value = 0.7;
+
+            o1.connect(env);
+            o2.connect(env);
+            env.connect(hp);
+            hp.connect(comp);
+
+            o1.start(t0);
+            o2.start(t0);
+            o1.stop(t0 + dur + 0.02);
+            o2.stop(t0 + dur + 0.02);
+          }
+
+          // Duas notas ascendentes curtinhas (do-ding)
+          const base = 740;   // ~F#5
+          const high = 1175;  // ~D6
+          const t0 = now;
+          chimedNote(base, t0, 0.12 / speed);
+          chimedNote(high, t0 + 0.09 / speed, 0.14 / speed);
+        } catch (e) {
+          console.error('[Audio] Erro no chime:', e);
+        }
+      }
+
       function resume() {
         try { 
           const ac = ensureCtx();
@@ -426,7 +490,8 @@
         document.addEventListener("keydown", kick);
       }
       
-      return { beep, initOnFirstInteraction, resume, forceInit };
+      // Expor novo chime
+      return { beep, initOnFirstInteraction, resume, forceInit, playWA: playWhatsAppChime };
     })();
 
     AudioNotify.initOnFirstInteraction();
@@ -465,7 +530,8 @@
             append("bot", "⚠️ Erro: " + data.error);
           } else if (data.answer) {
             append("bot", data.answer);
-            AudioNotify.beep(820, 0.22, 0.14); // beep único no fallback
+            // Troca beep por chime estilo WhatsApp
+            AudioNotify.playWA({ volume: 0.20 });
           } else {
             append("bot", "⚠️ Resposta inválida.");
           }
@@ -476,13 +542,13 @@
         const decoder = new TextDecoder();
         let buffer = "";
 
-        // Flag para garantir que o 1º beep toque exatamente uma vez
+        // Flag para garantir que o 1º chime toque exatamente uma vez
         let bookBeepPlayed = false;
         const tryBookBeep = () => {
           if (bookBeepPlayed) return;
           try {
             AudioNotify.resume();
-            AudioNotify.beep(920, 0.26, 0.20);
+            AudioNotify.playWA({ volume: 0.20 });
             bookBeepPlayed = true;
           } catch {}
         };
@@ -498,32 +564,31 @@
             return;
           }
           if (evt === "book") {
-            console.log('[SSE] Evento book recebido');
             ui.replaceTyping(data?.html || "");
-            // Toca o beep imediatamente - tom mais grave e suave
             if (!bookBeepPlayed) {
-              console.log('[SSE] Tocando beep do book...');
-              AudioNotify.beep(680, 0.30, 0.15); // Mais grave, mais longo, mais suave
+              // Chime principal
+              AudioNotify.playWA({ volume: 0.22 });
               bookBeepPlayed = true;
             }
             ui.showTyping("complementary");
             return;
           }
           if (evt === "complementary") {
-            console.log('[SSE] Evento complementary recebido');
             if (data?.html) ui.replaceTyping(data.html);
-            AudioNotify.beep(620, 0.28, 0.13); // Tom médio-grave
+            // Chime mais suave
+            AudioNotify.playWA({ volume: 0.18 });
             ui.showTyping("premium");
             return;
           }
           if (evt === "premium") {
-            console.log('[SSE] Evento premium recebido');
             if (data?.html) ui.replaceTyping(data.html);
-            AudioNotify.beep(560, 0.26, 0.12); // Tom mais grave ainda
+            // Chime ainda mais suave
+            AudioNotify.playWA({ volume: 0.16 });
             return;
           }
           if (evt === "error") {
             ui.replaceTyping("⚠️ Erro: " + (data?.message || "Falha no streaming"));
+            // Mantém beep simples para erro
             AudioNotify.beep(500, 0.27, 0.22);
             return;
           }
@@ -560,6 +625,7 @@
       } catch (e) {
         ui.finish();
         append("bot", "⚠️ Erro de conexão: " + e.message);
+        // Mantém beep simples para erro de conexão
         AudioNotify.beep(500, 0.2, 0.03);
       }
     }
