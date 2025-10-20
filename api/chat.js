@@ -74,6 +74,15 @@ function renderDictSection(items, isPremium) {
 	if (!items || !items.length) return "";
 	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e7e7eb">${renderDictItemsList(items, isPremium)}</div>`;
 }
+// Novo: renderizador simples em formato de “balão”
+function renderMessageBubbleHtml(text) {
+	const safe = escapeHtml(String(text || ""));
+	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">
+  <div style="display:inline-block;max-width:100%;padding:12px 14px;border:1px solid #1f2937;border-radius:14px;background:rgba(255,255,255,0.02);line-height:1.5">
+    ${safe.replace(/\n/g, "<br>")}
+  </div>
+</div>`;
+}
 
 // Next.js API config
 export const config = {
@@ -207,7 +216,8 @@ Critérios:
 
 			if (wantsSSE) {
 				sse("book", {
-					html: renderBookHtml(message, isGreeting ? "Bem-vindo!" : "Como usar o chat"),
+					// usar balão simples em vez do bloco do livro
+					html: renderMessageBubbleHtml(message),
 					used_pages: [],
 					original_pages: []
 				});
