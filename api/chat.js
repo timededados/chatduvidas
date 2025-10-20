@@ -216,9 +216,11 @@ Critérios:
 				: "Este chat serve para tirar dúvidas sobre o conteúdo do livro ABRAMED. Envie uma pergunta objetiva para eu procurar os trechos no livro.";
 
 			if (wantsSSE) {
-				// Usa um evento genérico para não ativar o layout de “Livro”
-				sse("message", {
-					html: renderMessageBubbleHtml(message)
+				// Volta a usar o evento "book" para compatibilidade com o frontend, mas com HTML simples
+				sse("book", {
+					html: renderMessageBubbleHtml(message),
+					used_pages: [],
+					original_pages: []
 				});
 				try { res.flush?.(); } catch {}
 				sse("done", { is_question: false, category, confidence, logs: getLogs() });
