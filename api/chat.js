@@ -58,7 +58,8 @@ function renderDictItemsList(items, isPremiumSection) {
 		const btn = it.link ? `<div style="margin-top:6px"><a style="${btnStyle(kind)}"${href}>${label}</a></div>` : "";
 
 		// Novo: imagem para itens premium (campos possíveis: imagem, image, thumbnail, thumb, cover)
-		const rawImg = isPremiumSection && (it.imagem || it.image || it.thumbnail || it.thumb || it.cover);
+		// Atualizado para também suportar imagemUrl/imagem_url (vindo da API do dicionário)
+		const rawImg = isPremiumSection && (it.imagemUrl || it.imagem_url || it.imagem || it.imageUrl || it.image || it.thumbnail || it.thumb || it.cover);
 		const imgTag = rawImg
 			? `<img src="${escapeAttr(String(rawImg))}" alt="${titulo}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #1f2937;background:#0b1220">`
 			: "";
