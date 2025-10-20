@@ -64,19 +64,13 @@ function renderDictItemsList(items, isPremiumSection) {
 			? `<img src="${escapeAttr(String(rawImg))}" alt="${titulo}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #1f2937;background:#0b1220">`
 			: "";
 
-		const badges = isPremiumSection
-			? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Carga horária: 12h</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Aulas on-demand</span><span style="border:1px dashed #1f2937;border-radius:999px;padding:4px 8px;font-size:11px;color:#94a3b8">Certificado</span></div>`
-			: "";
-
-		// Layout com imagem (quando existir em premium) ao lado do conteúdo
-		const inner = imgTag
-			? `<div style="display:flex;gap:12px;align-items:flex-start">
-					<div style="flex:0 0 auto">${imgTag}</div>
-					<div style="min-width:0;flex:1 1 auto">
-						<div><strong>${titulo}</strong>${autor}</div>
-						${btn}
-						${badges}
-					</div>
+		// Ajuste: para premium com imagem, usar layout vertical
+		const inner = (isPremiumSection && imgTag)
+			? `<div>
+					<div><strong>${titulo}</strong>${autor}</div>
+					<div style="margin-top:8px">${imgTag}</div>
+					${btn}
+					${badges}
 				</div>`
 			: `<div><strong>${titulo}</strong>${autor}</div>${btn}${badges}`;
 
