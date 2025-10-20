@@ -63,7 +63,7 @@ function renderDictItemsList(items, isPremiumSection) {
 		// Imagem (premium)
 		const rawImg = isPremiumSection && (it.imagemUrl || it.imagem_url || it.imagem || it.imageUrl || it.image || it.thumbnail || it.thumb || it.cover);
 		const imgTag = rawImg
-			? `<img src="${escapeAttr(String(rawImg))}" alt="${titulo}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #1f2937;background:#0b1220">`
+			? `<img src="${escapeAttr(String(rawImg))}" alt="${titulo}" style="width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid #1f2937;background:#0b1220">`
 			: "";
 
 		// Badges sem margem própria; o espaçamento será controlado pelo container (gap)
