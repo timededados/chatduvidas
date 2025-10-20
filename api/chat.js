@@ -208,8 +208,8 @@ Critérios:
 
 			const isGreeting = category === "greeting";
 			const message = isGreeting
-				? "Olá! Como posso ajudar? Envie sua dúvida para eu buscar trechos no livro ABRAMED."
-				: "Este chat serve para tirar dúvidas sobre o conteúdo do livro ABRAMED. Envie uma pergunta objetiva para eu procurar os trechos no livro.";
+				? "Olá! Como posso ajudar? Envie sua dúvida para eu buscar trechos no livro ABRAMEDE."
+				: "Este chat serve para tirar dúvidas sobre o conteúdo do livro ABRAMEDE. Envie uma pergunta objetiva para eu procurar os trechos no livro.";
 
 			if (wantsSSE) {
 				// Volta a usar o evento "book" para compatibilidade com o frontend, mas com HTML simples
