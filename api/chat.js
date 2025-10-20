@@ -65,8 +65,8 @@ function renderDictItemsList(items, isPremiumSection) {
 	const label = isPremiumSection ? "Conteúdo premium (opcional)" : "Conteúdo complementar";
 	return `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${label}</span><div style="margin-top:10px">${itemsHtml}</div></section>`;
 }
-function renderBookHtml(bookAnswer) {
-	const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600;color:#1a1a1a">Encontrei a informação que responde à sua dúvida 👇</h1></header>`;
+function renderBookHtml(bookAnswer, headerText) {
+	const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600;color:#1a1a1a">${escapeHtml(headerText || "Encontrei a informação que responde à sua dúvida 👇")}</h1></header>`;
 	const bookSection = `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>Livro (fonte principal)</span><div style="position:relative;padding:12px 14px;border-left:3px solid #38bdf8;background:rgba(56,189,248,0.06);border-radius:6px;line-height:1.5;margin-top:10px"><div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div><small style="display:block;color:#94a3b8;margin-top:6px;font-size:11px">Trechos do livro-base do curso.</small></div></section>`;
 	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${header + bookSection}</div>`;
 }
@@ -196,20 +196,32 @@ Critérios:
 		const isQuestion = Boolean(clsJson?.is_question);
 
 		if (!isQuestion) {
-			// Não seguir com busca no livro nem dicionário
-			const payload = {
-				is_question: false,
-				category: clsJson?.category || "other",
-				confidence: typeof clsJson?.confidence === "number" ? clsJson.confidence : null,
-				message: "A mensagem não parece um questionamento. Envie uma dúvida específica para consultar o conteúdo.",
-				logs: getLogs()
-			};
+			// Resposta ao usuário conforme categoria
+			const category = (clsJson?.category || "other").toLowerCase();
+			const confidence = typeof clsJson?.confidence === "number" ? clsJson.confidence : null;
+
+			const isGreeting = category === "greeting";
+			const message = isGreeting
+				? "Olá! Como posso ajudar? Envie sua dúvida para eu buscar trechos no livro ABRAMED."
+				: "Este chat serve para tirar dúvidas sobre o conteúdo do livro ABRAMED. Envie uma pergunta objetiva para eu procurar os trechos no livro.";
+
 			if (wantsSSE) {
-				sse("classification", payload);
-				sse("done", { logs: getLogs() });
+				sse("book", {
+					html: renderBookHtml(message, isGreeting ? "Bem-vindo!" : "Como usar o chat"),
+					used_pages: [],
+					original_pages: []
+				});
+				try { res.flush?.(); } catch {}
+				sse("done", { is_question: false, category, confidence, logs: getLogs() });
 				return res.end();
 			}
-			return res.status(200).json(payload);
+			return res.status(200).json({
+				is_question: false,
+				category,
+				confidence,
+				message,
+				logs: getLogs()
+			});
 		}
 
 		// 1) Carregamento de dados
