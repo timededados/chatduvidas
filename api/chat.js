@@ -151,6 +151,67 @@ export default async function handler(req, res) {
 		logSection("Pergunta recebida");
 		logObj("question", question);
 
+		// Etapa 0: Classificação de intenção (pergunta ou não)
+		logSection("Etapa 0: Classificação de intenção (OpenAI)");
+		const classifyReq = {
+			model: CHAT_MODEL,
+			messages: [
+				{
+					role: "system",
+					content: `
+Você é um classificador de intenções. Determine se a entrada do usuário é um questionamento válido (uma pergunta/dúvida que requer busca em conteúdo técnico) ou não.
+Responda SOMENTE em JSON, no formato:
+{"is_question": true|false, "category": "question|greeting|smalltalk|statement|command|other", "confidence": 0.0-1.0}
+Critérios:
+- Considere pergunta válida se houver intenção clara de obter informação, orientação ou esclarecimento.
+- Cumprimentos, apresentações, conversas triviais ou mensagens sem pedido informacional NÃO são pergunta.
+- Não use palavras-chave fixas; avalie o sentido geral da mensagem.
+`.trim()
+				},
+				{
+					role: "user",
+					content: `Texto: """${question}"""`
+				}
+			],
+			temperature: 0,
+			top_p: 1,
+			max_tokens: 60,
+			seed: seedFromString(question)
+		};
+		logOpenAIRequest("chat.completions.create", classifyReq);
+		const tCls0 = Date.now();
+		const classifyResp = await openai.chat.completions.create(classifyReq);
+		const clsMs = Date.now() - tCls0;
+		logOpenAIResponse("chat.completions.create", classifyResp, { duration_ms: clsMs });
+
+		let clsRaw = classifyResp.choices?.[0]?.message?.content || "{}";
+		let clsJson;
+		try {
+			// Tenta extrair JSON robustamente
+			const match = clsRaw.match(/\{[\s\S]*\}/);
+			clsJson = JSON.parse(match ? match[0] : clsRaw);
+		} catch {
+			clsJson = { is_question: false, category: "other", confidence: 0.0 };
+		}
+		const isQuestion = Boolean(clsJson?.is_question);
+
+		if (!isQuestion) {
+			// Não seguir com busca no livro nem dicionário
+			const payload = {
+				is_question: false,
+				category: clsJson?.category || "other",
+				confidence: typeof clsJson?.confidence === "number" ? clsJson.confidence : null,
+				message: "A mensagem não parece um questionamento. Envie uma dúvida específica para consultar o conteúdo.",
+				logs: getLogs()
+			};
+			if (wantsSSE) {
+				sse("classification", payload);
+				sse("done", { logs: getLogs() });
+				return res.end();
+			}
+			return res.status(200).json(payload);
+		}
+
 		// 1) Carregamento de dados
 		logSection("Etapa 1: Carregamento de dados");
 		const [bookRaw, embRaw, sumRaw] = await Promise.all([
@@ -545,7 +606,7 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 
 		// 10/11) JSON (comportamento atual)
 		return res.status(200).json({
-			answer: finalAnswer,
+			answer: answer,
 			used_pages: limitedPages,
 			original_pages: selectedPages,
 			expanded_context: EXPAND_CONTEXT,
