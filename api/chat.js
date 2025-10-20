@@ -77,7 +77,7 @@ function renderDictSection(items, isPremium) {
 // Novo: renderizador simples em formato de “balão”
 function renderMessageBubbleHtml(text) {
 	const safe = escapeHtml(String(text || ""));
-	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">
+	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#111827">
   <div style="display:inline-block;max-width:100%;padding:12px 14px;border:1px solid #1f2937;border-radius:14px;background:rgba(255,255,255,0.02);line-height:1.5">
     ${safe.replace(/\n/g, "<br>")}
   </div>
