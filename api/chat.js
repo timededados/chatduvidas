@@ -65,9 +65,14 @@ function renderDictItemsList(items, isPremiumSection) {
 	const label = isPremiumSection ? "Conteúdo premium (opcional)" : "Conteúdo complementar";
 	return `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>${label}</span><div style="margin-top:10px">${itemsHtml}</div></section>`;
 }
-function renderBookHtml(bookAnswer, headerText) {
-	const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600;color:#1a1a1a">${escapeHtml(headerText || "Encontrei a informação que responde à sua dúvida 👇")}</h1></header>`;
-	const bookSection = `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>Livro (fonte principal)</span><div style="position:relative;padding:12px 14px;border-left:3px solid #38bdf8;background:rgba(56,189,248,0.06);border-radius:6px;line-height:1.5;margin-top:10px"><div>${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div><small style="display:block;color:#94a3b8;margin-top:6px;font-size:11px">Trechos do livro-base do curso.</small></div></section>`;
+function renderBookHtml(bookAnswer, sectionTitle) {
+	const header = `<header style="margin-bottom:14px"><h1 style="font-size:18px;margin:0 0 6px 0;font-weight:600;color:#1a1a1a">${escapeHtml("Encontrei a informação que responde à sua dúvida 👇")}</h1></header>`;
+	const sectionLabel = `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #1f2937;background:rgba(255,255,255,0.02);color:#cbd5e1;font-weight:600;font-size:11px;letter-spacing:0.3px;text-transform:uppercase"><span style="width:6px;height:6px;border-radius:50%;background:#38bdf8"></span>Livro (fonte principal)</span>`;
+	const insideTitle = sectionTitle
+		? `<div style="margin:0 0 8px 0;color:#93c5fd;font-weight:600;font-size:13px">${escapeHtml(sectionTitle)}</div>`
+		: "";
+	const contentBox = `<div style="position:relative;padding:12px 14px;border-left:3px solid #38bdf8;background:rgba(56,189,248,0.06);border-radius:6px;line-height:1.5;margin-top:10px"><div>${insideTitle}${escapeHtml(bookAnswer).replace(/\n/g, "<br>")}</div><small style="display:block;color:#94a3b8;margin-top:6px;font-size:11px">Trechos do livro-base do curso.</small></div>`;
+	const bookSection = `<section style="background:linear-gradient(180deg,#0b1220,#111827);border:1px solid #1f2937;border-radius:12px;padding:14px;margin-bottom:12px">${sectionLabel}${contentBox}</section>`;
 	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#e5e7eb">${header + bookSection}</div>`;
 }
 function renderDictSection(items, isPremium) {
@@ -99,6 +104,22 @@ function buildBookHeaderFromPaths(paths) {
 		const secLabel = Array.from(sections).join(" | ") || "não identificada";
 		const topLabel = Array.from(topics).join(", ") || "não identificado";
 		return `Seção ${secLabel} - Tópico(s): ${topLabel}`;
+	} catch {
+		return null;
+	}
+}
+
+// Novo: monta apenas o título da seção (sem "Seção" e sem tópicos)
+function buildSectionTitleFromPaths(paths) {
+	try {
+		if (!Array.isArray(paths) || !paths.length) return null;
+		const sections = new Set();
+		for (const p of paths) {
+			const sec = String(p?.secao || "").trim();
+			if (sec) sections.add(sec);
+		}
+		const title = Array.from(sections).join(" | ");
+		return title || null;
 	} catch {
 		return null;
 	}
@@ -588,9 +609,9 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 
 		// Livro primeiro no SSE
 		if (wantsSSE) {
-			const bookHeader = buildBookHeaderFromPaths(relevantPaths);
+			const sectionTitle = buildSectionTitleFromPaths(relevantPaths);
 			sse("book", {
-				html: renderBookHtml(answer, bookHeader || undefined),
+				html: renderBookHtml(answer, sectionTitle || undefined),
 				used_pages: limitedPages,
 				original_pages: selectedPages
 			});
