@@ -80,6 +80,29 @@ function renderMessageBubbleHtml(text) {
 	// HTML compacto, sem quebras e com white-space normal para evitar "linhas em branco"
 	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#111827;white-space:normal"><div style="display:inline-block;max-width:100%;line-height:1.5;white-space:normal">${safe.replace(/\n/g, "<br>")}</div></div>`;
 }
+// Novo: monta o cabeçalho "Seção ... - Tópico(s) ..." a partir dos caminhos semânticos
+function buildBookHeaderFromPaths(paths) {
+	try {
+		if (!Array.isArray(paths) || !paths.length) return null;
+		const sections = new Set();
+		const topics = new Set();
+		for (const p of paths) {
+			const sec = String(p?.secao || "").trim();
+			if (sec) sections.add(sec);
+			const top = String(p?.topico || "").trim();
+			const sub = String(p?.subtopico || "").trim();
+			const cat = String(p?.categoria || "").trim();
+			if (top) topics.add(top);
+			if (sub) topics.add(sub);
+			if (!top && !sub && cat) topics.add(cat);
+		}
+		const secLabel = Array.from(sections).join(" | ") || "não identificada";
+		const topLabel = Array.from(topics).join(", ") || "não identificado";
+		return `Seção ${secLabel} - Tópico(s): ${topLabel}`;
+	} catch {
+		return null;
+	}
+}
 
 // Next.js API config
 export const config = {
@@ -565,8 +588,9 @@ Com base APENAS nos trechos acima, recorte os trechos exatos que respondem diret
 
 		// Livro primeiro no SSE
 		if (wantsSSE) {
+			const bookHeader = buildBookHeaderFromPaths(relevantPaths);
 			sse("book", {
-				html: renderBookHtml(answer),
+				html: renderBookHtml(answer, bookHeader || undefined),
 				used_pages: limitedPages,
 				original_pages: selectedPages
 			});
