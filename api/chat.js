@@ -77,12 +77,8 @@ function renderDictSection(items, isPremium) {
 // Novo: renderizador simples em formato de “balão”
 function renderMessageBubbleHtml(text) {
 	const safe = escapeHtml(String(text || ""));
-	// Texto simples, sem borda e sem fundo
-	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#111827">
-  <div style="display:inline-block;max-width:100%;line-height:1.5">
-    ${safe.replace(/\n/g, "<br>")}
-  </div>
-</div>`;
+	// HTML compacto, sem quebras e com white-space normal para evitar "linhas em branco"
+	return `<div style="max-width:680px;font-family:system-ui,-apple-system,sans-serif;color:#111827;white-space:normal"><div style="display:inline-block;max-width:100%;line-height:1.5;white-space:normal">${safe.replace(/\n/g, "<br>")}</div></div>`;
 }
 
 // Next.js API config
